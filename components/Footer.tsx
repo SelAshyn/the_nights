@@ -19,7 +19,7 @@ export const Footer = () => {
 
           {/* Center - Team Credit */}
           <div className="text-sm text-slate-600">
-            Developed by <span className="font-semibold text-slate-900">Team 100Bits</span>
+            Developed by <span className="font-semibold text-slate-900">Team "The Nights"</span>
           </div>
 
           {/* Right - Links and Social */}
