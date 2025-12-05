@@ -110,7 +110,7 @@ function FormattedMessage({ text }: { text: string }) {
           {currentList.map((item, i) => {
             // Process bold text in list items
             const processedItem = processBoldText(item);
-            return <li key={i} className="text-sm text-slate-700 leading-relaxed">{processedItem}</li>;
+            return <li key={i} className="text-sm text-white leading-relaxed">{processedItem}</li>;
           })}
         </ul>
       );
@@ -125,7 +125,7 @@ function FormattedMessage({ text }: { text: string }) {
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
         const content = part.slice(2, -2);
-        return <strong key={i} className="font-semibold text-slate-900">{content}</strong>;
+        return <strong key={i} className="font-semibold text-white">{content}</strong>;
       }
       return <span key={i}>{part}</span>;
     });
@@ -145,7 +145,7 @@ function FormattedMessage({ text }: { text: string }) {
       flushList();
       const heading = trimmed.replace(/^##\s*/, '').replace(/\*\*/g, '');
       elements.push(
-        <h3 key={`heading-${idx}`} className="font-bold text-slate-900 mt-4 mb-2 text-base">
+        <h3 key={`heading-${idx}`} className="font-bold text-white mt-4 mb-2 text-base">
           {heading}
         </h3>
       );
@@ -157,7 +157,7 @@ function FormattedMessage({ text }: { text: string }) {
       flushList();
       const heading = trimmed.slice(2, -2);
       elements.push(
-        <h3 key={`heading-${idx}`} className="font-bold text-slate-900 mt-4 mb-2 text-base">
+        <h3 key={`heading-${idx}`} className="font-bold text-white mt-4 mb-2 text-base">
           {heading}
         </h3>
       );
@@ -184,7 +184,7 @@ function FormattedMessage({ text }: { text: string }) {
     flushList();
     if (trimmed.length > 0) {
       elements.push(
-        <p key={`p-${idx}`} className="text-sm text-slate-700 leading-relaxed my-2">
+        <p key={`p-${idx}`} className="text-sm text-white leading-relaxed my-2">
           {processBoldText(trimmed)}
         </p>
       );
@@ -200,13 +200,13 @@ function FormattedMessage({ text }: { text: string }) {
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children?: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-slate-50 to-white">
-          <h3 className="text-lg font-semibold text-slate-900">{title || 'Details'}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="bg-slate-800/95 backdrop-blur-sm rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl border border-teal-500/30 overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-teal-500/30 bg-gradient-to-r from-teal-600/20 to-cyan-600/20">
+          <h3 className="text-lg font-semibold text-white">{title || 'Details'}</h3>
           <button
             onClick={onClose}
-            className="text-slate-600 hover:text-slate-800 hover:bg-slate-100 px-3 py-1 rounded-lg transition-colors font-medium"
+            className="text-slate-300 hover:text-white hover:bg-slate-700/50 px-3 py-1 rounded-lg transition-colors font-medium"
           >
             ✕ Close
           </button>
@@ -370,13 +370,25 @@ export default function UserPage() {
           }
         }
 
-        // Load saved careers (user-specific)
-        const saved = localStorage.getItem(userKey('savedCareers'));
-        if (saved) {
-          try {
-            setSavedCareers(JSON.parse(saved));
-          } catch (e) {
-            console.warn('Invalid savedCareers in localStorage');
+        // Load saved careers from database
+        const { data: savedFromDb, error: savedError } = await supabase
+          .from('saved_careers')
+          .select('career_title')
+          .eq('user_id', userId);
+
+        if (!savedError && savedFromDb) {
+          const savedTitles = savedFromDb.map(item => item.career_title);
+          setSavedCareers(savedTitles);
+          localStorage.setItem(userKey('savedCareers'), JSON.stringify(savedTitles));
+        } else {
+          // Fallback to localStorage if database fails
+          const saved = localStorage.getItem(userKey('savedCareers'));
+          if (saved) {
+            try {
+              setSavedCareers(JSON.parse(saved));
+            } catch (e) {
+              console.warn('Invalid savedCareers in localStorage');
+            }
           }
         }
       } catch (err) {
@@ -873,18 +885,61 @@ Return ONLY the JSON array, nothing else.`,
     const userId = session.user.id;
     const userKey = (key: string) => `${key}_${userId}`;
 
-    setSavedCareers((prev) => {
-      let updated: string[];
-      if (prev.includes(careerTitle)) {
-        // Unsave
-        updated = prev.filter((title) => title !== careerTitle);
-      } else {
-        // Save
-        updated = [...prev, careerTitle];
+    const isSaved = savedCareers.includes(careerTitle);
+
+    if (isSaved) {
+      // Unsave - remove from database
+      const { error } = await supabase
+        .from('saved_careers')
+        .delete()
+        .eq('user_id', userId)
+        .eq('career_title', careerTitle);
+
+      if (error) {
+        console.error('Error removing saved career:', error);
+        return;
       }
-      localStorage.setItem(userKey('savedCareers'), JSON.stringify(updated));
-      return updated;
-    });
+
+      setSavedCareers((prev) => {
+        const updated = prev.filter((title) => title !== careerTitle);
+        localStorage.setItem(userKey('savedCareers'), JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      // Save - add to database with ALL career information
+      const career = careerSuggestions.find(c => c.title === careerTitle);
+
+      const { error } = await supabase
+        .from('saved_careers')
+        .insert({
+          user_id: userId,
+          career_title: careerTitle,
+          career_description: career?.description || '',
+          education: career?.education || '',
+          field_of_study: career?.fieldOfStudy || '',
+          top_skills: career?.topSkills || [],
+          certifications: career?.certifications || [],
+          possible_job_titles: career?.possibleJobTitles || [],
+          universities: career?.universities || [],
+          extracurriculars: career?.extracurriculars || [],
+          financial_guidance: career?.financialGuidance || [],
+          career_path: career?.careerPath || '',
+          salary_range: career?.salaryRange || '',
+          growth_potential: career?.growthPotential || '',
+          fit_score: career?.fitScore || 0
+        });
+
+      if (error) {
+        console.error('Error saving career:', error);
+        return;
+      }
+
+      setSavedCareers((prev) => {
+        const updated = [...prev, careerTitle];
+        localStorage.setItem(userKey('savedCareers'), JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const isCareerSaved = (careerTitle: string) => {
@@ -897,28 +952,35 @@ Return ONLY the JSON array, nothing else.`,
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-teal-900">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-500/20 border-t-teal-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="flex">
+    <div className="min-h-screen bg-gradient-to-r from-gray-900 via-slate-900 to-teal-900 relative overflow-hidden">
+      {/* Animated gradient orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-teal-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-96 h-96 bg-cyan-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="flex relative z-10">
         {/* Sidebar */}
-        <aside className="w-64 hidden md:block bg-white border-r border-slate-200 min-h-screen pt-28 overflow-y-auto">
+        <aside className="w-64 hidden md:block bg-slate-800/90 backdrop-blur-sm border-r border-teal-500/20 min-h-screen pt-28 overflow-y-auto">
           <div className="p-6">
-            <h2 className="text-xl font-semibold">MentorLaunch</h2>
-            <p className="text-sm text-slate-500 mt-2">Career guidance & study plans</p>
+            <h2 className="text-xl font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">MentorLaunch</h2>
+            <p className="text-sm text-slate-300 mt-2">Career guidance & study plans</p>
 
             {/* Active Mentors Section */}
             <div className="mt-6">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                 <span>👨‍🏫</span>
                 Active Mentors
                 {!loadingMentors && mentorsData?.active > 0 && (
-                  <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                  <span className="ml-auto text-xs bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/30">
                     {mentorsData.active}
                   </span>
                 )}
@@ -931,18 +993,18 @@ Return ONLY the JSON array, nothing else.`,
               ) : mentorsData?.mentors && mentorsData.mentors.length > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {mentorsData.mentors.filter((m: any) => m.is_active).map((mentor: any) => (
-                    <div key={mentor.id} className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors">
+                    <div key={mentor.id} className="p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-teal-500/30 hover:border-teal-500/50 transition-all hover:shadow-lg hover:shadow-teal-500/10">
                       <div className="flex items-start gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {mentor.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{mentor.name}</p>
-                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></span>
+                            <p className="text-sm font-semibold text-white truncate">{mentor.name}</p>
+                            <span className="w-2 h-2 bg-teal-400 rounded-full animate-pulse flex-shrink-0"></span>
                           </div>
-                          <p className="text-xs text-slate-600 truncate">{mentor.profession}</p>
-                          <p className="text-xs text-purple-600">{mentor.experience}</p>
+                          <p className="text-xs text-slate-300 truncate">{mentor.profession}</p>
+                          <p className="text-xs text-teal-400">{mentor.experience}</p>
                         </div>
                       </div>
                       <button
@@ -984,7 +1046,7 @@ Return ONLY the JSON array, nothing else.`,
                             alert('Failed to start chat');
                           }
                         }}
-                        className="w-full text-xs bg-purple-600 hover:bg-purple-700 text-white py-1.5 rounded-md transition-colors font-semibold"
+                        className="w-full text-xs bg-teal-600 hover:bg-teal-700 text-white py-1.5 rounded-md transition-all font-semibold shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30"
                       >
                         💬 Start Chat
                       </button>
@@ -992,7 +1054,7 @@ Return ONLY the JSON array, nothing else.`,
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 text-center py-4">No mentors online</p>
+                <p className="text-xs text-slate-400 text-center py-4">No mentors online</p>
               )}
             </div>
 
@@ -1008,61 +1070,14 @@ Return ONLY the JSON array, nothing else.`,
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
-                  <h1 className="text-4xl font-heading font-bold text-slate-900 mb-2">Your Career Dashboard</h1>
-                  <p className="text-slate-600 text-lg">Deep insights, clear steps, and gamified goals to help you level up.</p>
+                  <h1 className="text-4xl font-heading font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2">Your Career Dashboard</h1>
+                  <p className="text-slate-300 text-lg">Deep insights, clear steps, and gamified goals to help you level up.</p>
                 </div>
 
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="text-right">
-                    <p className="text-sm text-slate-500">Profile</p>
-                    <p className="font-semibold text-slate-800">{fullQuizData?.grade || 'Not set'} • {userInterestsText || 'No interests'}</p>
-                  </div>
-
-                  <Button
-                    onClick={() => router.push('/welcome')}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all"
-                  >
-                    🔄 Retake Quiz
-                  </Button>
-
-                  <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl px-6 py-3 shadow-sm border-2 border-indigo-200 relative">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-xs text-slate-600 font-medium">Career Fit Score</div>
-                      <button
-                        onClick={() => setShowFitScoreInfo(!showFitScoreInfo)}
-                        className="text-indigo-600 hover:text-indigo-700 transition-colors"
-                        aria-label="Info about Career Fit Score"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="text-3xl font-bold text-indigo-600">{totalScore}<span className="text-lg text-slate-500">/100</span></div>
-
-                    {showFitScoreInfo && (
-                      <div
-                        ref={fitScoreInfoRef}
-                        className="absolute top-full left-0 right-0 mt-2 p-4 bg-white rounded-xl shadow-lg border border-indigo-200 z-10"
-                        style={{
-                          animation: 'fadeIn 0.2s ease-out'
-                        }}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className="text-lg">📊</span>
-                          <div>
-                            <h4 className="font-semibold text-slate-900 mb-2">What is Career Fit Score?</h4>
-                            <p className="text-sm text-slate-600 leading-relaxed">
-                              Your Career Fit Score is a personalized metric that shows how well our suggested careers match your unique profile.
-                              The score is calculated by analyzing your career interests, comparing your skills with job requirements, and evaluating your academic strengths.
-                              We also factor in your technology confidence level and how your study goals align with each career path.
-                              A higher score means the career is a better fit for you based on your quiz responses.
-                              This helps you prioritize which careers to explore first and make more informed decisions about your future.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-sm text-slate-400">Profile</p>
+                    <p className="font-semibold text-white">{fullQuizData?.grade || 'Not set'} • {userInterestsText || 'No interests'}</p>
                   </div>
 
                   <Button
@@ -1086,38 +1101,77 @@ Return ONLY the JSON array, nothing else.`,
                       }
                       router.push('/welcome');
                     }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20"
                     size="sm"
                   >
                     🔄 Retake Quiz
                   </Button>
+
+                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl px-6 py-3 shadow-lg border-2 border-teal-500/30 relative">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="text-xs w-100 text-slate-300 font-medium">Career Fit Score</div>
+                      <button
+                        onClick={() => setShowFitScoreInfo(!showFitScoreInfo)}
+                        className="text-teal-400 hover:text-teal-300 transition-colors"
+                        aria-label="Info about Career Fit Score"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="text-3xl font-bold text-teal-400">{totalScore}<span className="text-lg text-slate-400">/100</span></div>
+
+                    {showFitScoreInfo && (
+                      <div
+                        ref={fitScoreInfoRef}
+                        className="absolute top-full left-0 right-0 mt-2 p-4 bg-slate-700/95 backdrop-blur-md rounded-xl shadow-2xl border border-teal-500/30 z-10"
+                        style={{
+                          animation: 'fadeIn 0.2s ease-out'
+                        }}
+                      >
+                        <div className="flex z-100 items-start gap-2">
+                          <span className="text-lg">📊</span>
+                          <div>
+                            <h4 className="font-semibold text-white mb-2">What is Career Fit Score?</h4>
+                            <p className="text-sm text-slate-300 leading-relaxed">
+                              Your Career Fit Score is a personalized metric that shows how well our suggested careers match your unique profile.
+                              The score is calculated by analyzing your career interests, comparing your skills with job requirements, and evaluating your academic strengths.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+
                 </div>
               </div>
 
               {/* Top recommendations */}
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-                <div className="col-span-3 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3">Top Recommendations</h3>
+                <div className="col-span-3 bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                  <h3 className="text-lg font-semibold text-white mb-3">Top Recommendations</h3>
                   <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
                     {careerSuggestions.slice(0, 3).map((c, i) => (
-                      <div key={i} className="flex-shrink-0 w-80 p-4 rounded-xl border border-slate-100 snap-start">
+                      <div key={i} className="flex-shrink-0 w-80 p-4 rounded-xl border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm snap-start hover:border-teal-500/50 transition-all">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <div className="text-sm text-slate-500">#{i + 1}</div>
-                            <h4 className="text-xl font-semibold text-slate-900 mt-1">{c.title}</h4>
-                            <p className="text-sm text-slate-600 mt-2 line-clamp-2">{c.description}</p>
+                            <div className="text-sm text-teal-400">#{i + 1}</div>
+                            <h4 className="text-xl font-semibold text-white mt-1">{c.title}</h4>
+                            <p className="text-sm text-slate-300 mt-2 line-clamp-2">{c.description}</p>
                           </div>
                           <div className="text-right ml-3">
-                            <div className="text-sm text-slate-500">Growth</div>
-                            <div className="font-bold text-sm">{c.growth || 'N/A'}</div>
-                            <div className="text-sm text-slate-500 mt-2">Salary</div>
-                            <div className="font-semibold text-sm">{c.salary || '—'}</div>
+                            <div className="text-xs text-slate-400">Growth</div>
+                            <div className="font-bold text-sm text-teal-400">{c.growth || 'N/A'}</div>
+                            <div className="text-xs text-slate-400 mt-2">Salary</div>
+                            <div className="font-semibold text-sm text-cyan-400">{c.salary || '—'}</div>
                           </div>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
                           {(c.skills || []).slice(0, 5).map((s, si) => (
-                            <span key={si} className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs">{s}</span>
+                            <span key={si} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs border border-teal-500/30">{s}</span>
                           ))}
                         </div>
 
@@ -1126,37 +1180,37 @@ Return ONLY the JSON array, nothing else.`,
                             const ev = new CustomEvent('prefill-chat', { detail: `I want a 3-month plan to start: ${c.title}` });
                             window.dispatchEvent(ev);
                             setChatOpen(true);
-                          }} size="sm" className="w-full text-xs">📅 Get 3-month plan</Button>
+                          }} size="sm" className="w-full text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20">📅 Get 3-month plan</Button>
 
-                          <Button onClick={() => { setSelectedCareerForUnis(c); setUniModalOpen(true); }} size="sm" className="w-full text-xs">🎓 Universities</Button>
+                          <Button onClick={() => { setSelectedCareerForUnis(c); setUniModalOpen(true); }} size="sm" className="w-full text-xs bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg shadow-cyan-500/20">🎓 Universities</Button>
 
-                          <Button onClick={() => navigator.clipboard.writeText(c.title)} size="sm" variant="outline" className="w-full text-xs">📋 Copy</Button>
+                          <Button onClick={() => navigator.clipboard.writeText(c.title)} size="sm" variant="outline" className="w-full text-xs border-teal-500/30 text-teal-300 hover:bg-teal-500/10">📋 Copy</Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3">Progress & Goals</h3>
+                <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                  <h3 className="text-lg font-semibold text-white mb-3">Progress & Goals</h3>
                   <div className="mb-4">
-                    <p className="text-sm text-slate-500">Overall Career Fit</p>
-                    <div className="w-full bg-slate-100 rounded-full h-4 mt-2 overflow-hidden">
-                      <div className="h-4 rounded-full" style={{ width: `${totalScore}%`, background: 'linear-gradient(90deg,#60a5fa,#7c3aed)' }} />
+                    <p className="text-sm text-slate-300">Overall Career Fit</p>
+                    <div className="w-full bg-slate-700/50 rounded-full h-4 mt-2 overflow-hidden border border-teal-500/20">
+                      <div className="h-4 rounded-full" style={{ width: `${totalScore}%`, background: 'linear-gradient(90deg, #14b8a6, #06b6d4)' }} />
                     </div>
-                    <div className="flex items-center justify-between text-sm text-slate-500 mt-2">
+                    <div className="flex items-center justify-between text-sm text-slate-400 mt-2">
                       <span>Beginner</span>
                       <span>Expert</span>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-sm text-slate-600">Next Badge</h4>
+                    <h4 className="text-sm text-slate-300">Next Badge</h4>
                     <div className="mt-2 flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-md bg-gradient-to-br from-yellow-300 to-orange-400 flex items-center justify-center font-bold">Lv</div>
+                      <div className="w-12 h-12 rounded-md bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center font-bold text-white shadow-lg">Lv</div>
                       <div>
-                        <div className="font-semibold">Skill Builder</div>
-                        <div className="text-xs text-slate-500">Complete 3 projects to unlock</div>
+                        <div className="font-semibold text-white">Skill Builder</div>
+                        <div className="text-xs text-slate-400">Complete 3 projects to unlock</div>
                       </div>
                     </div>
                   </div>
@@ -1167,10 +1221,10 @@ Return ONLY the JSON array, nothing else.`,
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left column */}
                 <div className="col-span-2 space-y-6">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">Skill Gap Analysis</h3>
+                  <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                    <h3 className="text-lg font-semibold text-white mb-3">Skill Gap Analysis</h3>
 
-                    <p className="text-sm text-slate-500 mb-4">We compare your current skills with the top recommended career to show where to focus.</p>
+                    <p className="text-sm text-slate-300 mb-4">We compare your current skills with the top recommended career to show where to focus.</p>
 
                     {careerSuggestions[0] ? (
                       <div>
@@ -1180,19 +1234,19 @@ Return ONLY the JSON array, nothing else.`,
                           return (
                             <div key={i} className="mb-4">
                               <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">{s}</div>
-                                <div className="text-sm text-slate-500">{level}%</div>
+                                <div className="text-sm font-medium text-white">{s}</div>
+                                <div className="text-sm text-teal-400 font-semibold">{level}%</div>
                               </div>
-                              <div className="w-full bg-slate-100 rounded-full h-3 mt-2 overflow-hidden">
-                                <div className="h-3 rounded-full bg-indigo-600" style={{ width: `${level}%` }} />
+                              <div className="w-full bg-slate-700/50 rounded-full h-3 mt-2 overflow-hidden border border-teal-500/20">
+                                <div className="h-3 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500" style={{ width: `${level}%` }} />
                               </div>
                             </div>
                           );
                         })}
 
-                        <div className="mt-6">
-                          <h4 className="text-sm font-semibold">Actionable Steps</h4>
-                          <ol className="list-decimal list-inside text-sm text-slate-700 mt-2 space-y-1">
+                        <div className="mt-6 p-4 bg-slate-700/30 rounded-lg border border-teal-500/20">
+                          <h4 className="text-sm font-semibold text-white mb-2">💡 Actionable Steps</h4>
+                          <ol className="list-decimal list-inside text-sm text-slate-300 space-y-2">
                             <li>Pick 2 skills with lowest levels and schedule 30–60 minute daily practice sessions.</li>
                             <li>Complete 1 small project (2–4 weeks) demonstrating those skills.</li>
                             <li>Join a club or internship to build real-world experience.</li>
@@ -1200,28 +1254,28 @@ Return ONLY the JSON array, nothing else.`,
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-500">No primary recommendation yet. Generate suggestions to see skill gaps.</div>
+                      <div className="text-sm text-slate-400">No primary recommendation yet. Generate suggestions to see skill gaps.</div>
                     )}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">5-Step Roadmap (Timeline)</h3>
+                  <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                    <h3 className="text-lg font-semibold text-white mb-3">5-Step Roadmap (Timeline)</h3>
 
                     <div className="space-y-6">
                       {['Months 0–3', 'Months 3–6', 'Months 6–12', 'Year 1–2', 'Year 3+'].map((label, idx) => (
                         <div key={idx} className="flex items-start gap-4">
-                          <div className="w-28 text-sm text-slate-500">{label}</div>
-                          <div className="flex-1 bg-slate-50 rounded-lg p-4 border border-slate-100">
+                          <div className="w-28 text-sm text-teal-400 font-semibold">{label}</div>
+                          <div className="flex-1 bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30 hover:border-teal-500/50 transition-all">
                             <div className="flex items-between justify-between">
                               <div>
-                                <div className="font-semibold">{careerSuggestions[idx] ? `Step toward ${careerSuggestions[idx].title}` : 'General step'}</div>
-                                <div className="text-sm text-slate-600">{careerSuggestions[idx]?.description || 'Build fundamentals and explore.'}</div>
+                                <div className="font-semibold text-white">{careerSuggestions[idx] ? `Step toward ${careerSuggestions[idx].title}` : 'General step'}</div>
+                                <div className="text-sm text-slate-300">{careerSuggestions[idx]?.description || 'Build fundamentals and explore.'}</div>
                               </div>
-                              <div className="text-sm text-slate-500">Effort: <span className="font-semibold">{idx < 2 ? 'Low' : idx < 4 ? 'Medium' : 'High'}</span></div>
+                              <div className="text-sm text-slate-400">Effort: <span className="font-semibold text-cyan-400">{idx < 2 ? 'Low' : idx < 4 ? 'Medium' : 'High'}</span></div>
                             </div>
 
-                            <div className="mt-3 text-sm text-slate-700">
-                              <ul className="list-disc list-inside">
+                            <div className="mt-3 text-sm text-slate-300">
+                              <ul className="list-disc list-inside space-y-1">
                                 <li>Recommended focus: {careerSuggestions[idx]?.skills?.slice(0, 3).join(', ') || 'Study core subjects'}</li>
                                 <li>Mini-goal: Complete one project or certification</li>
                                 <li>Resources: Free online courses, local workshops</li>
@@ -1236,8 +1290,8 @@ Return ONLY the JSON array, nothing else.`,
 
                 {/* Right column */}
                 <div className="space-y-6">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">Salary Breakdown</h3>
+                  <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                    <h3 className="text-lg font-semibold text-white mb-3">Salary Breakdown</h3>
                     {careerSuggestions.length > 0 ? (
                       <div>
                         {careerSuggestions.slice(0, 4).map((c, i) => {
@@ -1245,42 +1299,42 @@ Return ONLY the JSON array, nothing else.`,
                           return (
                             <div key={i} className="mb-4">
                               <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium">{c.title}</div>
-                                <div className="text-sm text-slate-500">{range}</div>
+                                <div className="text-sm font-medium text-white">{c.title}</div>
+                                <div className="text-sm text-teal-400 font-semibold">{range}</div>
                               </div>
-                              <div className="w-full bg-slate-100 rounded-full h-3 mt-2 overflow-hidden">
-                                <div className={`h-3 rounded-full ${c.growth === 'Very High' ? 'bg-green-400' : c.growth === 'High' ? 'bg-blue-400' : 'bg-yellow-400'}`} style={{ width: `${40 + (i * 12)}%` }} />
+                              <div className="w-full bg-slate-700/50 rounded-full h-3 mt-2 overflow-hidden border border-teal-500/20">
+                                <div className={`h-3 rounded-full ${c.growth === 'Very High' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : c.growth === 'High' ? 'bg-gradient-to-r from-teal-400 to-cyan-500' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`} style={{ width: `${40 + (i * 12)}%` }} />
                               </div>
                             </div>
                           );
                         })}
 
-                        <div className="mt-4 text-sm text-slate-600">Salaries are indicative and depend on region, experience, and employer.</div>
+                        <div className="mt-4 text-sm text-slate-400 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">💡 Salaries are indicative and depend on region, experience, and employer.</div>
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-500">No salary data available. Generate suggestions to view ranges.</div>
+                      <div className="text-sm text-slate-400">No salary data available. Generate suggestions to view ranges.</div>
                     )}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">Education Cost & ROI</h3>
-                    <p className="text-sm text-slate-500 mb-3">Estimate costs and compare likely return on investment for top paths.</p>
+                  <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                    <h3 className="text-lg font-semibold text-white mb-3">Education Cost & ROI</h3>
+                    <p className="text-sm text-slate-300 mb-3">Estimate costs and compare likely return on investment for top paths.</p>
 
                     {careerSuggestions[0] ? (
                       <>
-                        <div className="mb-3">
-                          <div className="text-sm font-medium">Typical Education</div>
-                          <div className="text-sm text-slate-700">{careerSuggestions[0].education || '—'}</div>
+                        <div className="mb-3 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">
+                          <div className="text-sm font-medium text-white">Typical Education</div>
+                          <div className="text-sm text-slate-300 mt-1">{careerSuggestions[0].education || '—'}</div>
                         </div>
 
-                        <div className="mb-3">
-                          <div className="text-sm font-medium">Estimated Cost Range</div>
-                          <div className="text-sm text-slate-700">{fullQuizData?.grade && fullQuizData.grade.toLowerCase().includes('high') ? '$5k - $20k (per year)' : '$2k - $12k (per year)'}</div>
+                        <div className="mb-3 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">
+                          <div className="text-sm font-medium text-white">Estimated Cost Range</div>
+                          <div className="text-sm text-teal-400 font-semibold mt-1">{fullQuizData?.grade && fullQuizData.grade.toLowerCase().includes('high') ? '$5k - $20k (per year)' : '$2k - $12k (per year)'}</div>
                         </div>
 
                         <div>
                           <div className="text-sm font-medium">ROI Indicator</div>
-                          <div className="mt-2 text-sm text-slate-700">{careerSuggestions[0].growth === 'Very High' ? 'High potential ROI' : careerSuggestions[0].growth === 'High' ? 'Good ROI' : 'Moderate ROI'}</div>
+                          <div className="mt-2 text-sm text-white-700">{careerSuggestions[0].growth === 'Very High' ? 'High potential ROI' : careerSuggestions[0].growth === 'High' ? 'Good ROI' : 'Moderate ROI'}</div>
                         </div>
 
                         <div className="mt-4">
@@ -1297,9 +1351,9 @@ Return ONLY the JSON array, nothing else.`,
                     )}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">Quick Financial Tips</h3>
-                    <ul className="text-sm space-y-2 text-slate-700">
+                  <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                    <h3 className="text-lg font-semibold text-white mb-3">Quick Financial Tips</h3>
+                    <ul className="text-sm space-y-2 text-slate-300">
                       <li>• Create a simple monthly budget and track small expenses.</li>
                       <li>• Save a set percentage of any income from part-time work or freelancing.</li>
                       <li>• Apply early for scholarships and local grants.</li>
@@ -1307,14 +1361,14 @@ Return ONLY the JSON array, nothing else.`,
                     </ul>
                   </div>
 
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200 shadow-sm">
+                  <div className=" rounded-2xl p-6 border-2 border-green-200 shadow-sm">
                     <Button
                       onClick={fetchScholarshipUniversities}
                       className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 rounded-xl shadow-lg transition-all hover:scale-105"
                     >
                       💰 Get AI Financial & Scholarship Guidance
                     </Button>
-                    <p className="text-xs text-center text-slate-600 mt-2">
+                    <p className="text-xs text-center text-slate-400 mt-2">
                       Get personalized tips on universities with financial support & scholarships
                     </p>
                   </div>
@@ -1324,67 +1378,67 @@ Return ONLY the JSON array, nothing else.`,
               {/* Career deep-dive accordions */}
               <div className="mt-8 space-y-6">
                 {careerSuggestions.map((career, idx) => (
-                  <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <div key={idx} className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <h4 className="text-xl font-semibold text-slate-900">{career.title}</h4>
-                        <p className="text-sm text-slate-600 mt-1">{career.description}</p>
+                        <h4 className="text-xl font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">{career.title}</h4>
+                        <p className="text-sm text-slate-300 mt-1">{career.description}</p>
 
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <div className="text-sm text-slate-500">Education</div>
-                            <div className="font-semibold">{career.education || '—'}</div>
-                            <div className="text-sm mt-2">{formatList(career.degrees, 4)}</div>
+                            <div className="text-sm text-slate-400">Education</div>
+                            <div className="font-semibold text-white">{career.education || '—'}</div>
+                            <div className="text-sm mt-2 text-slate-300">{formatList(career.degrees, 4)}</div>
                           </div>
 
                           <div>
-                            <div className="text-sm text-slate-500">Top Skills</div>
-                            <div className="mt-2 flex flex-wrap gap-2">{(career.skills || []).map((s, i) => <span key={i} className="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs">{s}</span>)}</div>
+                            <div className="text-sm text-slate-400">Top Skills</div>
+                            <div className="mt-2 flex flex-wrap gap-2">{(career.skills || []).map((s, i) => <span key={i} className="px-2 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs border border-teal-500/30">{s}</span>)}</div>
                           </div>
 
                           <div>
-                            <div className="text-sm text-slate-500">Extracurriculars</div>
-                            <div className="mt-2 text-sm">{formatList(career.extracurricular, 5)}</div>
+                            <div className="text-sm text-slate-400">Extracurriculars</div>
+                            <div className="mt-2 text-sm text-slate-300">{formatList(career.extracurricular, 5)}</div>
                           </div>
                         </div>
                       </div>
 
                       <div className="w-56 text-right">
-                        <div className="text-sm text-slate-500">Fit Score</div>
-                        <div className="text-3xl font-bold text-indigo-600">{computeCareerScore(career, fullQuizData)}</div>
+                        <div className="text-sm text-slate-400">Fit Score</div>
+                        <div className="text-3xl font-bold text-teal-400">{computeCareerScore(career, fullQuizData)}</div>
                         <div className="mt-4">
-                          <div className="text-sm text-slate-500">Estimated Salary</div>
-                          <div className="font-semibold">{career.salary || '—'}</div>
+                          <div className="text-sm text-slate-400">Estimated Salary</div>
+                          <div className="font-semibold text-cyan-400">{career.salary || '—'}</div>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                        <div className="text-sm text-slate-500">Certifications</div>
-                        <div className="mt-2 text-sm">{formatList(career.certifications, 5)}</div>
+                      <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
+                        <div className="text-sm text-slate-400">Certifications</div>
+                        <div className="mt-2 text-sm text-slate-300">{formatList(career.certifications, 5)}</div>
                       </div>
 
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                        <div className="text-sm text-slate-500">Possible Job Titles</div>
-                        <div className="mt-2 text-sm">{formatList(career.jobTitles, 5)}</div>
+                      <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
+                        <div className="text-sm text-slate-400">Possible Job Titles</div>
+                        <div className="mt-2 text-sm text-slate-300">{formatList(career.jobTitles, 5)}</div>
                       </div>
 
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                      <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm text-slate-500">Universities</div>
-                            <div className="mt-2 text-sm">{formatList(career.universities, 5)}</div>
+                            <div className="text-sm text-slate-400">Universities</div>
+                            <div className="mt-2 text-sm text-slate-300">{formatList(career.universities, 5)}</div>
                           </div>
                           <div>
-                            <button onClick={() => { setSelectedCareerForUnis(career); setUniModalOpen(true); }} className="margin-1 text-sm bg-indigo-600 p-1 rounded-lg w-14 text-white cursor-pointer">View</button>
+                            <button onClick={() => { setSelectedCareerForUnis(career); setUniModalOpen(true); }} className="margin-1 text-sm bg-teal-600 hover:bg-teal-700 p-1 rounded-lg w-14 text-white cursor-pointer transition-all shadow-lg shadow-teal-500/20">View</button>
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                        <div className="text-sm text-slate-500">Financial Guidance</div>
-                        <div className="mt-2 text-sm">{career.financialAdvice?.educationCostAdvice || 'See quick tips on the right.'}</div>
+                      <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
+                        <div className="text-sm text-slate-400">Financial Guidance</div>
+                        <div className="mt-2 text-sm text-slate-300">{career.financialAdvice?.educationCostAdvice || 'See quick tips on the right.'}</div>
                       </div>
                     </div>
 
@@ -1394,11 +1448,11 @@ Return ONLY the JSON array, nothing else.`,
                         const ev = new CustomEvent('prefill-chat', { detail: q });
                         window.dispatchEvent(ev);
                         setChatOpen(true);
-                      }}>Ask MentorAssist for a learning plan</Button>
+                      }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20">Ask MentorAssist for a learning plan</Button>
 
                       <Button
                         onClick={() => toggleSaveCareer(career.title)}
-                        className={isCareerSaved(career.title) ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-indigo-600 text-white hover:bg-indigo-700'}
+                        className={isCareerSaved(career.title) ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/20' : 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-lg shadow-cyan-500/20'}
                       >
                         {isCareerSaved(career.title) ? '✓ Saved' : '⭐ Save'}
                       </Button>
@@ -1418,26 +1472,26 @@ Return ONLY the JSON array, nothing else.`,
         <button
           aria-label="Open MentorAssist chat"
           onClick={() => { setChatOpen(true); openChatWithContext(); }}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-full px-5 py-3 shadow-2xl transition-all hover:scale-105"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-full px-5 py-3 shadow-2xl shadow-teal-500/30 transition-all hover:scale-105"
         >
           <span className="text-lg font-bold">💬 MentorAssist</span>
-          <span className="text-xs bg-white text-indigo-600 px-2 py-1 rounded-full font-semibold">AI</span>
+          <span className="text-xs bg-white text-teal-600 px-2 py-1 rounded-full font-semibold">AI</span>
         </button>
       )}
 
       {/* Chat Sidebar */}
       {chatOpen && (
-        <div className="fixed inset-y-0 right-0 z-50 w-full md:w-[500px] bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-slide-in-right">
+        <div className="fixed inset-y-0 right-0 z-50 w-full md:w-[500px] bg-slate-800/95 backdrop-blur-md shadow-2xl border-l border-teal-500/30 flex flex-col animate-slide-in-right">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
+          <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-4 text-white">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl shadow-lg">
                   🤖
                 </div>
                 <div>
                   <h4 className="text-lg font-bold">MentorAssist</h4>
-                  <p className="text-xs text-indigo-100">Your AI Career Guide</p>
+                  <p className="text-xs text-teal-100">Your AI Career Guide</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1447,35 +1501,35 @@ Return ONLY the JSON array, nothing else.`,
                     setChatInput('');
                   }}
                   title="Clear chat"
-                  className="text-white/80 hover:text-white px-2 py-1 rounded hover:bg-white/10 text-sm"
+                  className="text-white/80 hover:text-white px-2 py-1 rounded hover:bg-white/10 text-sm transition-colors"
                 >
                   🗑️
                 </button>
                 <button
                   onClick={closeChat}
-                  className="text-white/80 hover:text-white px-3 py-1 rounded hover:bg-white/10 font-semibold"
+                  className="text-white/80 hover:text-white px-3 py-1 rounded hover:bg-white/10 font-semibold transition-colors"
                 >
                   ✕
                 </button>
               </div>
             </div>
-            <div className="text-xs text-indigo-100">
+            <div className="text-xs text-white-700">
               Ask about careers, scholarships, study plans, and more
             </div>
           </div>
 
           {/* Messages */}
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 scroll-smooth scrollbar-hide">
+          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/50 scroll-smooth scrollbar-hide">
             {chatMessages.length === 0 && (
               <div className="text-center py-8">
                 <div className="text-4xl mb-3">💡</div>
-                <p className="text-sm text-slate-600 mb-4">Start a conversation with MentorAssist</p>
+                <p className="text-sm text-white-700 mb-4">Start a conversation with MentorAssist</p>
                 <div className="space-y-2">
                   <button
                     onClick={() => {
                       setChatInput('What are the best scholarships for international students?');
                     }}
-                    className="w-full text-left px-4 py-2 bg-white rounded-lg border border-slate-200 hover:border-indigo-300 text-sm text-slate-700 hover:bg-indigo-50 transition-colors"
+                    className="w-full text-left px-4 py-2 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-teal-500/30 hover:border-teal-500/50 text-sm text-slate-300 hover:bg-teal-500/10 transition-all"
                   >
                     💰 Best scholarships for international students
                   </button>
@@ -1483,7 +1537,7 @@ Return ONLY the JSON array, nothing else.`,
                     onClick={() => {
                       setChatInput('Create a 3-month study plan for me');
                     }}
-                    className="w-full text-left px-4 py-2 bg-white rounded-lg border border-slate-200 hover:border-indigo-300 text-sm text-slate-700 hover:bg-indigo-50 transition-colors"
+                    className="w-full text-left px-4 py-2 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-teal-500/30 hover:border-teal-500/50 text-sm text-slate-300 hover:bg-teal-500/10 transition-all"
                   >
                     📚 Create a 3-month study plan
                   </button>
@@ -1491,7 +1545,7 @@ Return ONLY the JSON array, nothing else.`,
                     onClick={() => {
                       setChatInput('How can I improve my application for top universities?');
                     }}
-                    className="w-full text-left px-4 py-2 bg-white rounded-lg border border-slate-200 hover:border-indigo-300 text-sm text-slate-700 hover:bg-indigo-50 transition-colors"
+                    className="w-full text-left px-4 py-2 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-teal-500/30 hover:border-teal-500/50 text-sm text-slate-300 hover:bg-teal-500/10 transition-all"
                   >
                     🎓 Tips for university applications
                   </button>
@@ -1500,7 +1554,7 @@ Return ONLY the JSON array, nothing else.`,
             )}
             {chatMessages.map((m, i) => (
               <div key={i} className={`flex ${m.from === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] ${m.from === 'ai' ? 'bg-white border border-slate-200' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'} rounded-2xl p-4 shadow-sm`}>
+                <div className={`max-w-[85%] ${m.from === 'ai' ? 'bg-slate-700/50 backdrop-blur-sm border border-teal-500/30' : 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white'} rounded-2xl p-4 shadow-lg`}>
                   {m.from === 'ai' ? (
                     <FormattedMessage text={m.text} />
                   ) : (
@@ -1511,14 +1565,14 @@ Return ONLY the JSON array, nothing else.`,
             ))}
             {chatLoading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                <div className="bg-slate-700/50 backdrop-blur-sm border border-teal-500/30 rounded-2xl p-4 shadow-lg">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
-                    <span className="text-xs text-slate-500">MentorAssist is thinking...</span>
+                    <span className="text-xs text-slate-300">MentorAssist is thinking...</span>
                   </div>
                 </div>
               </div>
@@ -1526,19 +1580,19 @@ Return ONLY the JSON array, nothing else.`,
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white border-t border-slate-200">
+          <div className="p-4 bg-slate-800/95 backdrop-blur-md border-t border-teal-500/30">
             <div className="flex gap-2">
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
                 placeholder="Ask anything about your career..."
-                className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-3 focus:outline-none focus:border-indigo-400 text-sm"
+                className="flex-1 rounded-xl border-2 border-teal-500/30 bg-slate-700/50 backdrop-blur-sm px-4 py-3 focus:outline-none focus:border-teal-500 text-sm text-white placeholder-slate-400"
               />
               <button
                 onClick={sendChat}
                 disabled={chatLoading || !chatInput.trim()}
-                className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold text-sm"
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:from-teal-700 hover:to-cyan-700 transition-all font-semibold text-sm shadow-lg shadow-teal-500/20"
               >
                 {chatLoading ? '⏳' : '📤'}
               </button>
@@ -1555,13 +1609,13 @@ Return ONLY the JSON array, nothing else.`,
       >
         {selectedCareerForUnis ? (
           <>
-            <p className="text-sm text-slate-600 mb-3">Suggested universities (by affordability / fit). Click any to ask MentorAssist for more details.</p>
+            <p className="text-sm text-slate-300 mb-3">Suggested universities (by affordability / fit). Click any to ask MentorAssist for more details.</p>
             <div className="space-y-3">
               {(selectedCareerForUnis.universities || getUniversitiesForCareer(selectedCareerForUnis.title)).map((u, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white">
+                <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm hover:border-teal-500/50 transition-all">
                   <div>
-                    <div className="font-medium">{u}</div>
-                    <div className="text-xs text-slate-500">{i === 0 ? 'Top suggestion' : 'Recommended'}</div>
+                    <div className="font-medium text-white">{u}</div>
+                    <div className="text-xs text-teal-400 mt-1">{i === 0 ? '⭐ Top suggestion' : '✓ Recommended'}</div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -1572,7 +1626,7 @@ Return ONLY the JSON array, nothing else.`,
                         setUniModalOpen(false);
                         setChatOpen(true);
                       }}
-                      className="px-3 py-1 rounded-md border text-sm"
+                      className="px-3 py-1 rounded-md border border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-sm transition-all"
                     >
                       Ask
                     </button>
@@ -1581,7 +1635,7 @@ Return ONLY the JSON array, nothing else.`,
                       href={`https://www.google.com/search?q=${encodeURIComponent(u)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-1 rounded-md border bg-indigo-600 text-white text-sm"
+                      className="px-3 py-1 rounded-md border border-teal-500/30 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-sm transition-all shadow-lg shadow-teal-500/20"
                     >
                       Visit
                     </a>
@@ -1591,7 +1645,7 @@ Return ONLY the JSON array, nothing else.`,
             </div>
           </>
         ) : (
-          <div className="text-sm text-slate-500">No universities available.</div>
+          <div className="text-sm text-slate-400">No universities available.</div>
         )}
       </Modal>
 
@@ -1603,13 +1657,13 @@ Return ONLY the JSON array, nothing else.`,
       >
         {loadingScholarships ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-200 border-t-green-600 mb-4" />
-            <p className="text-sm text-slate-600">Generating AI-powered scholarship recommendations...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-200 border-t-teal-600 mb-4" />
+            <p className="text-sm text-slate-300">Generating AI-powered scholarship recommendations...</p>
           </div>
         ) : (
           <>
-            <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm text-green-800">
+            <div className="mb-4 p-4 bg-teal-500/10 rounded-lg border border-teal-500/30 backdrop-blur-sm">
+              <p className="text-sm text-teal-300">
                 <strong>💡 Pro Tip:</strong> These universities offer substantial financial aid (70-100% scholarships).
                 Start your applications early and prepare strong essays highlighting your achievements and financial need.
               </p>
@@ -1617,16 +1671,16 @@ Return ONLY the JSON array, nothing else.`,
 
             <div className="max-h-[60vh] overflow-y-auto space-y-4 scroll-smooth scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {scholarshipData.map((uni, idx) => (
-                <div key={idx} className="p-4 rounded-xl border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50 hover:border-green-300 transition-all">
+                <div key={idx} className="p-4 rounded-xl border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm hover:border-teal-500/50 transition-all">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <h4 className="text-lg font-bold text-slate-900">{uni.name}</h4>
-                      <p className="text-sm text-slate-600 flex items-center gap-2 mt-1">
+                      <h4 className="text-lg font-bold text-white">{uni.name}</h4>
+                      <p className="text-sm text-slate-300 flex items-center gap-2 mt-1">
                         <span>📍 {uni.location}</span>
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold">
+                      <div className="px-3 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-sm font-bold">
                         {uni.scholarship}
                       </div>
                     </div>
@@ -1634,10 +1688,10 @@ Return ONLY the JSON array, nothing else.`,
 
                   <div className="space-y-2 mb-3">
                     <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase">Scholarship Types:</span>
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Scholarship Types:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {(uni.types || []).map((type: string, i: number) => (
-                          <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                          <span key={i} className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded text-xs">
                             {type}
                           </span>
                         ))}
@@ -1645,22 +1699,22 @@ Return ONLY the JSON array, nothing else.`,
                     </div>
 
                     <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase">Description:</span>
-                      <p className="text-sm text-slate-700 mt-1">{uni.description}</p>
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Description:</span>
+                      <p className="text-sm text-slate-300 mt-1">{uni.description}</p>
                     </div>
 
                     <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase">Requirements:</span>
-                      <p className="text-sm text-slate-700 mt-1">{uni.requirements}</p>
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Requirements:</span>
+                      <p className="text-sm text-slate-300 mt-1">{uni.requirements}</p>
                     </div>
 
                     <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase">Programs:</span>
-                      <p className="text-sm text-slate-700 mt-1">{uni.programs}</p>
+                      <span className="text-xs font-semibold text-slate-400 uppercase">Programs:</span>
+                      <p className="text-sm text-slate-300 mt-1">{uni.programs}</p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-slate-200">
+                  <div className="flex gap-2 pt-3 border-t border-slate-600/50">
                     <button
                       onClick={() => {
                         const q = `Tell me more about ${uni.name}: detailed scholarship application process, deadlines, success tips, and how to maximize my chances of getting ${uni.scholarship} scholarship.`;
@@ -1669,7 +1723,7 @@ Return ONLY the JSON array, nothing else.`,
                         setScholarshipModalOpen(false);
                         setChatOpen(true);
                       }}
-                      className="flex-1 px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-sm font-medium transition-colors"
+                      className="flex-1 px-3 py-2 rounded-lg border border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-sm font-medium transition-colors"
                     >
                       💬 Ask AI
                     </button>
@@ -1678,7 +1732,7 @@ Return ONLY the JSON array, nothing else.`,
                       href={`https://www.google.com/search?q=${encodeURIComponent(uni.name + ' scholarships')}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex-1 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium text-center transition-colors"
+                      className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-sm font-medium text-center transition-colors shadow-lg shadow-green-500/20"
                     >
                       🔍 Search
                     </a>
@@ -1687,12 +1741,12 @@ Return ONLY the JSON array, nothing else.`,
               ))}
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-blue-800">
+            <div className="mt-4 p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30 backdrop-blur-sm">
+              <p className="text-xs text-cyan-300">
                 <strong>📚 Additional Resources:</strong> Visit scholarship databases like
-                <a href="https://www.scholarships.com" target="_blank" rel="noreferrer" className="underline ml-1">Scholarships.com</a>,
-                <a href="https://www.fastweb.com" target="_blank" rel="noreferrer" className="underline ml-1">Fastweb</a>, and
-                <a href="https://www.internationalscholarships.com" target="_blank" rel="noreferrer" className="underline ml-1">InternationalScholarships.com</a>
+                <a href="https://www.scholarships.com" target="_blank" rel="noreferrer" className="underline ml-1 hover:text-cyan-200">Scholarships.com</a>,
+                <a href="https://www.fastweb.com" target="_blank" rel="noreferrer" className="underline ml-1 hover:text-cyan-200">Fastweb</a>, and
+                <a href="https://www.internationalscholarships.com" target="_blank" rel="noreferrer" className="underline ml-1 hover:text-cyan-200">InternationalScholarships.com</a>
               </p>
             </div>
           </>
@@ -1701,6 +1755,36 @@ Return ONLY the JSON array, nothing else.`,
 
       {/* Chat */}
       <Chat />
+
+      {/* Animation Styles */}
+      <style jsx global>{`
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 }

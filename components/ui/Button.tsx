@@ -24,7 +24,7 @@ export const Button = ({
       className={clsx(
         'flex justify-center border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2',
         {
-          'text-white bg-[#690ED9] hover:bg-[#5E079C] focus:ring-[##5E079C]': variant === 'primary',
+          'text-white bg-teal-600 hover:bg-teal-700 focus:ring-[##5E079C]': variant === 'primary',
           'text-[#690ED9] bg-white border-[#690ED9] hover:bg-gray-50 focus:ring-[#0ea0d9]': variant === 'secondary',
           'text-[#690ED9] bg-transparent border-[#690ED9] hover:bg-[#690ED9]/5 focus:ring-[#690ED9]': variant === 'outline',
           'opacity-50 cursor-not-allowed': isLoading || disabled,

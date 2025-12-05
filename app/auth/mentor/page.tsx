@@ -28,7 +28,9 @@ export default function MentorAuthPage() {
       return 'Please enter a valid email address';
     }
 
-    // Trusted domains whitelist
+    const domain = email.split('@')[1]?.toLowerCase();
+
+    // Trusted consumer email providers
     const trustedDomains = [
       'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
       'icloud.com', 'protonmail.com', 'aol.com', 'mail.com',
@@ -36,11 +38,31 @@ export default function MentorAuthPage() {
       'yahoo.co.uk', 'yahoo.co.in', 'outlook.co.uk', 'googlemail.com'
     ];
 
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (!trustedDomains.includes(domain)) {
-      return 'Please use an email from Gmail, Yahoo, Outlook, or other recognized providers';
+    // Check if it's a trusted consumer email
+    if (trustedDomains.includes(domain)) {
+      return null;
     }
 
+    // Allow organizational/educational emails (.edu, .ac, .org, .gov, etc.)
+    const organizationalTLDs = ['.edu', '.ac.', '.org', '.gov', '.mil'];
+    const isOrganizational = organizationalTLDs.some(tld => domain.includes(tld));
+
+    if (isOrganizational) {
+      return null;
+    }
+
+    // Block disposable/temporary email services
+    const disposableDomains = [
+      'tempmail.com', 'throwaway.email', 'guerrillamail.com',
+      '10minutemail.com', 'mailinator.com', 'trashmail.com',
+      'temp-mail.org', 'fakeinbox.com', 'yopmail.com'
+    ];
+
+    if (disposableDomains.includes(domain)) {
+      return 'Temporary email addresses are not allowed';
+    }
+
+    // For other domains, just ensure basic validity
     return null;
   };
 
@@ -51,35 +73,12 @@ export default function MentorAuthPage() {
 
     try {
       if (isSignUp) {
-        // Client-side validation first
+        // Client-side validation only
         const clientError = validateEmailClient(email);
         if (clientError) {
           setError(clientError);
           setLoading(false);
           return;
-        }
-
-        // 🔍 Verify email with API (optional additional check)
-        try {
-          const verifyResponse = await fetch('/api/verify-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-          });
-
-          if (verifyResponse.ok) {
-            const verifyData = await verifyResponse.json();
-            console.log('Email verification result:', verifyData);
-
-            if (!verifyData.valid) {
-              setError(verifyData.error || 'Invalid email address');
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (verifyError: any) {
-          console.error('Email verification API error:', verifyError);
-          // Continue with client-side validation only
         }
 
         // 🔐 Supabase mentor sign-up
@@ -134,27 +133,27 @@ export default function MentorAuthPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-900 via-slate-900 to-teal-900">
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
           <img src="/logo.svg" width="64px" height="64px" />
         </div>
         <div className="mt-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+          <div className="inline-flex items-center gap-2 bg-cyan-900/50 text-cyan-300 px-4 py-2 rounded-full text-sm font-semibold mb-4 border border-cyan-500/30">
             <span className="text-xl">👨‍🏫</span>
             Mentor Portal
           </div>
-          <h2 className="text-4xl font-heading font-bold tracking-tight text-slate-900">
+          <h2 className="text-4xl font-heading font-bold tracking-tight text-white">
             {isSignUp ? "Join as a Mentor" : "Welcome Back, Mentor"}
           </h2>
-          <p className="mt-2 text-base text-slate-600 font-body">
+          <p className="mt-2 text-base text-slate-300 font-body">
             {isSignUp ? "Share your expertise and guide the next generation" : "Sign in to continue mentoring"}
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-white/90 backdrop-blur-sm px-6 py-8 shadow-2xl sm:rounded-2xl sm:px-12 border border-purple-100">
+        <div className="bg-slate-800/90 backdrop-blur-sm px-6 py-8 shadow-2xl sm:rounded-2xl sm:px-12 border border-cyan-500/20">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="rounded-lg bg-red-50 p-4 border border-red-200">
@@ -169,7 +168,7 @@ export default function MentorAuthPage() {
             {isSignUp && (
               <>
                 <div>
-                  <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="fullName" className="block text-sm font-medium text-slate-300 font-body">
                     Full Name
                   </label>
                   <div className="mt-1">
@@ -180,13 +179,13 @@ export default function MentorAuthPage() {
                       required
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="profession" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="profession" className="block text-sm font-medium text-slate-300 font-body">
                     Profession / Job Title
                   </label>
                   <div className="mt-1">
@@ -198,13 +197,13 @@ export default function MentorAuthPage() {
                       value={profession}
                       onChange={(e) => setProfession(e.target.value)}
                       placeholder="e.g., Software Engineer, Doctor, Business Analyst"
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="experience" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="experience" className="block text-sm font-medium text-slate-300 font-body">
                     Years of Experience
                   </label>
                   <div className="mt-1">
@@ -214,7 +213,7 @@ export default function MentorAuthPage() {
                       required
                       value={experience}
                       onChange={(e) => setExperience(e.target.value)}
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white"
                     >
                       <option value="">Select experience</option>
                       <option value="1-3">1-3 years</option>
@@ -226,7 +225,7 @@ export default function MentorAuthPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="company" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="company" className="block text-sm font-medium text-slate-300 font-body">
                     Current Company / Organization
                   </label>
                   <div className="mt-1">
@@ -238,13 +237,13 @@ export default function MentorAuthPage() {
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
                       placeholder="e.g., Google, Stanford University, Self-employed"
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="linkedinUrl" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="linkedinUrl" className="block text-sm font-medium text-slate-300 font-body">
                     LinkedIn Profile URL
                   </label>
                   <div className="mt-1">
@@ -256,14 +255,14 @@ export default function MentorAuthPage() {
                       value={linkedinUrl}
                       onChange={(e) => setLinkedinUrl(e.target.value)}
                       placeholder="https://linkedin.com/in/yourprofile"
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">We'll verify your professional background</p>
+                  <p className="mt-1 text-xs text-slate-400">We'll verify your professional background</p>
                 </div>
 
                 <div>
-                  <label htmlFor="credentials" className="block text-sm font-medium text-slate-700 font-body">
+                  <label htmlFor="credentials" className="block text-sm font-medium text-slate-300 font-body">
                     Professional Credentials / Certifications
                   </label>
                   <div className="mt-1">
@@ -274,21 +273,21 @@ export default function MentorAuthPage() {
                       value={credentials}
                       onChange={(e) => setCredentials(e.target.value)}
                       placeholder="List your degrees, certifications, or professional achievements (optional)"
-                      className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                      className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                     />
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-purple-50 p-4 border border-purple-200">
+                <div className="rounded-lg bg-cyan-900/30 p-4 border border-cyan-500/30">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="h-5 w-5 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-purple-800">Verification Process</h3>
-                      <p className="mt-1 text-sm text-purple-700">
+                      <h3 className="text-sm font-medium text-cyan-300">Verification Process</h3>
+                      <p className="mt-1 text-sm text-slate-300">
                         Your application will be reviewed within 24-48 hours. We'll verify your LinkedIn profile and professional background to ensure quality mentorship.
                       </p>
                     </div>
@@ -298,7 +297,7 @@ export default function MentorAuthPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 font-body">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 font-body">
                 Email address
               </label>
               <div className="mt-1">
@@ -310,13 +309,13 @@ export default function MentorAuthPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                  className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 font-body">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 font-body">
                 Password
               </label>
               <div className="mt-1">
@@ -328,7 +327,7 @@ export default function MentorAuthPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm transition-colors text-slate-900"
+                  className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
               </div>
             </div>
@@ -336,7 +335,7 @@ export default function MentorAuthPage() {
             <div>
               <Button
                 type="submit"
-                className="w-full shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                className="w-full shadow-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700"
                 isLoading={loading}
               >
                 {isSignUp ? "Create Mentor Account" : "Sign in as Mentor"}
@@ -347,17 +346,17 @@ export default function MentorAuthPage() {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-300" />
+                <div className="w-full border-t border-slate-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white/90 px-3 text-slate-500 font-body">or</span>
+                <span className="bg-slate-800 px-3 text-slate-400 font-body">or</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="mt-6 w-full text-center text-base text-purple-600 hover:text-purple-700 font-semibold transition-colors font-body"
+              className="mt-6 w-full text-center text-base text-cyan-400 hover:text-cyan-300 font-semibold transition-colors font-body"
             >
               {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
@@ -372,7 +371,7 @@ export default function MentorAuthPage() {
         >
           <path
             fill="url(#gradient-mentor)"
-            fillOpacity=".3"
+            fillOpacity=".2"
             d="M317.219 518.975L203.852 678 0 438.341l317.219 80.634 204.172-286.402c1.307 132.337 45.083 346.658 209.733 145.248C936.936 126.058 882.053-94.234 1031.02 41.331c119.18 108.451 130.68 295.337 121.53 375.223L855 299l21.173 362.054-558.954-142.079z"
           />
           <defs>
@@ -384,8 +383,8 @@ export default function MentorAuthPage() {
               y2="474.645"
               gradientUnits="userSpaceOnUse"
             >
-              <stop stopColor="#9333ea" />
-              <stop offset={1} stopColor="#ec4899" />
+              <stop stopColor="#06b6d4" />
+              <stop offset={1} stopColor="#14b8a6" />
             </linearGradient>
           </defs>
         </svg>

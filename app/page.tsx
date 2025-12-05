@@ -7,7 +7,6 @@ import { Hero } from "@/components/sections/Hero";
 import { Features } from "@/components/sections/Features";
 import { CTA } from "@/components/sections/CTA";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 
 export const dynamic = 'force-dynamic';
 
@@ -50,14 +49,13 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <>
       <Navbar />
-      <main className="relative flex-1">
+      <main className="relative">
         <Hero />
         <Features />
         <CTA />
       </main>
-      <Footer />
-    </div>
+    </>
   );
 }

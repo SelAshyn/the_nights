@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { chat_request_id, receiver_id, message } = await req.json();
+    const { conversation_id, content } = await req.json();
     const authHeader = req.headers.get('authorization');
 
     if (!authHeader) {
@@ -22,14 +22,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!conversation_id || !content) {
+      return NextResponse.json({ error: 'conversation_id and content required' }, { status: 400 });
+    }
+
     // Send message
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .insert({
-        chat_request_id,
+        conversation_id,
         sender_id: user.id,
-        receiver_id,
-        message
+        content: content.trim()
       })
       .select()
       .single();
@@ -46,10 +49,10 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const chat_request_id = searchParams.get('chat_request_id');
+    const conversation_id = searchParams.get('conversation_id');
     const authHeader = req.headers.get('authorization');
 
-    if (!authHeader || !chat_request_id) {
+    if (!authHeader || !conversation_id) {
       return NextResponse.json({ error: 'Bad request' }, { status: 400 });
     }
 
@@ -67,9 +70,9 @@ export async function GET(req: Request) {
 
     // Get messages
     const { data, error } = await supabase
-      .from('chat_messages')
+      .from('messages')
       .select('*')
-      .eq('chat_request_id', chat_request_id)
+      .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: true });
 
     if (error) throw error;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Logo } from "@/components/ui/Logo";
+
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { Poppins } from "next/font/google";
@@ -30,11 +30,32 @@ export const UserNavbar = () => {
       }
     };
 
-    const loadUserData = () => {
-      const grade = localStorage.getItem('userGrade') || '';
-      const interests = JSON.parse(localStorage.getItem('userInterests') || '[]');
-      setUserGrade(grade);
-      setUserInterests(interests);
+    const loadUserData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+
+        if (userId) {
+          const userKey = (key: string) => `${key}_${userId}`;
+
+          // Try to load from user-specific localStorage first
+          const fullQuizDataStr = localStorage.getItem(userKey('fullQuizData'));
+          if (fullQuizDataStr) {
+            const fullQuizData = JSON.parse(fullQuizDataStr);
+            setUserGrade(fullQuizData.grade || '');
+            setUserInterests(fullQuizData.academicInterests || []);
+            return;
+          }
+        }
+
+        // Fallback to legacy keys
+        const grade = localStorage.getItem('userGrade') || '';
+        const interests = JSON.parse(localStorage.getItem('userInterests') || '[]');
+        setUserGrade(grade);
+        setUserInterests(interests);
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
     };
 
     loadUserData();
@@ -42,7 +63,7 @@ export const UserNavbar = () => {
 
     // Listen for storage changes from other tabs/windows
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'userGrade' || e.key === 'userInterests') {
+      if (e.key === 'userGrade' || e.key === 'userInterests' || e.key?.includes('fullQuizData')) {
         loadUserData();
       }
     };
@@ -116,12 +137,12 @@ export const UserNavbar = () => {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-white/40 backdrop-blur-sm border-b border-gray-100">
+    <header className="fixed inset-x-0 top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-teal-500/20">
       <nav className="flex items-center justify-between p-4 lg:px-8 max-w-7xl mx-auto" aria-label="Global">
         <div className="flex items-center gap-2">
           <Link href="/user" className="flex items-center gap-2">
-            <img src="/logo.svg" width="35px" height="35px" className="lg:w-[45px] lg:h-[45px]" />
-            <span className={`${poppins.className} text-lg lg:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent tracking-wide`}>MentorLaunch</span>
+            <img src="/logo.svg" width="50px" height="45px" className="lg:w-[45px] lg:h-[45px]" />
+            <span className={`${poppins.className} text-lg lg:text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent tracking-wide`}>UNITE</span>
           </Link>
         </div>
 
@@ -129,31 +150,32 @@ export const UserNavbar = () => {
         <div className="hidden md:flex items-center gap-2">
           <Link
             href="/user"
-            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-teal-400 hover:bg-teal-500/10 transition-all"
           >
             📊 Dashboard
           </Link>
           <Link
             href="/user/plans"
-            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-teal-400 hover:bg-teal-500/10 transition-all"
           >
             📚 My Plans
           </Link>
           <Link
             href="/user/saved"
-            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+            className="px-3 lg:px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-teal-400 hover:bg-teal-500/10 transition-all"
           >
             ⭐ Saved
           </Link>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Grade Level & Interests Display */}
           {/* Mobile menu button */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            className="md:hidden p-2 rounded-lg hover:bg-teal-500/10 transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {mobileMenuOpen ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               ) : (
@@ -166,14 +188,14 @@ export const UserNavbar = () => {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowAccountMenu(!showAccountMenu)}
-              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-4 py-2 rounded-full hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 rounded-full hover:bg-teal-500/10 transition-all border border-transparent hover:border-teal-500/30"
             >
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm lg:text-base">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm lg:text-base shadow-lg shadow-teal-500/20">
                 {getInitials(userName)}
               </div>
-              <span className="hidden lg:block text-slate-700 font-semibold">{userName}</span>
+              <span className="hidden lg:block text-white font-semibold">{userName}</span>
               <svg
-                className={`hidden lg:block w-4 h-4 text-slate-600 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
+                className={`hidden lg:block w-4 h-4 text-slate-400 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -183,10 +205,10 @@ export const UserNavbar = () => {
             </button>
 
             {showAccountMenu && (
-              <div className="absolute right-0 mt-2 w-72 lg:w-80 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-up">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+              <div className="absolute right-0 mt-2 w-72 lg:w-80 bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/30 overflow-hidden animate-scale-up">
+                <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 text-white">
                   <div className="flex items-center gap-4 mb-3">
-                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl">
+                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl shadow-lg">
                       {getInitials(userName)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -200,32 +222,32 @@ export const UserNavbar = () => {
                 </div>
 
                 <div className="p-4 space-y-3">
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <div className="bg-slate-700/50 backdrop-blur-sm rounded-xl p-4 border border-teal-500/30">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xl">🎓</span>
-                      <h4 className="font-semibold text-slate-900">Grade Level</h4>
+                      <h4 className="font-semibold text-white">Grade Level</h4>
                     </div>
-                    <p className="text-slate-700 font-medium">{userGrade || 'Not set'}</p>
+                    <p className="text-teal-400 font-medium">{userGrade || 'Not set'}</p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <div className="bg-slate-700/50 backdrop-blur-sm rounded-xl p-4 border border-teal-500/30">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xl">💡</span>
-                      <h4 className="font-semibold text-slate-900">Interests</h4>
+                      <h4 className="font-semibold text-white">Interests</h4>
                     </div>
                     {userInterests.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {userInterests.map((interest, index) => (
                           <span
                             key={index}
-                            className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold"
+                            className="px-3 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs font-semibold border border-teal-500/30"
                           >
                             {interest}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-slate-500 text-sm">No interests set</p>
+                      <p className="text-slate-400 text-sm">No interests set</p>
                     )}
                   </div>
 
@@ -235,8 +257,7 @@ export const UserNavbar = () => {
                         setShowAccountMenu(false);
                         router.push('/welcome');
                       }}
-                      variant="outline"
-                      className="w-full justify-center"
+                      className="w-full justify-center bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20"
                       size="sm"
                     >
                       Update Preferences
@@ -244,7 +265,7 @@ export const UserNavbar = () => {
                     <Button
                       onClick={handleSignOut}
                       variant="outline"
-                      className="w-full justify-center text-red-600 hover:bg-red-50 hover:border-red-300"
+                      className="w-full justify-center text-red-400 hover:bg-red-500/10 hover:border-red-500/50 border-slate-600"
                       size="sm"
                     >
                       Sign Out
@@ -259,26 +280,54 @@ export const UserNavbar = () => {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-slate-200 shadow-lg">
-          <div className="px-4 py-4 space-y-2">
+        <div className="md:hidden bg-slate-800/95 backdrop-blur-md border-t border-teal-500/20 shadow-lg">
+          <div className="px-4 py-4 space-y-3">
+            {/* Mobile Profile Info */}
+            <div className="pb-3 border-b border-teal-500/20 space-y-2">
+              {userGrade && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/50 rounded-lg border border-teal-500/30">
+                  <span className="text-sm">🎓</span>
+                  <span className="text-sm font-semibold text-teal-400">{userGrade}</span>
+                </div>
+              )}
+              {userInterests.length > 0 && (
+                <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-teal-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm">💡</span>
+                    <span className="text-xs font-semibold text-white">Interests</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {userInterests.map((interest, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-0.5 bg-teal-500/20 text-teal-300 rounded-full text-xs font-medium border border-teal-500/30"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Link
               href="/user"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-indigo-600 font-semibold transition-colors"
+              className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-teal-500/10 hover:text-teal-400 font-semibold transition-all border border-transparent hover:border-teal-500/30"
             >
               📊 Dashboard
             </Link>
             <Link
               href="/user/plans"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-indigo-600 font-semibold transition-colors"
+              className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-teal-500/10 hover:text-teal-400 font-semibold transition-all border border-transparent hover:border-teal-500/30"
             >
               📚 My Plans
             </Link>
             <Link
               href="/user/saved"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-indigo-600 font-semibold transition-colors"
+              className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-teal-500/10 hover:text-teal-400 font-semibold transition-all border border-transparent hover:border-teal-500/30"
             >
               ⭐ Saved
             </Link>

@@ -1,18 +1,20 @@
-# Chat System Database Setup
+# Complete Database Setup
 
 ## 📋 Overview
 
-This folder contains all SQL files needed to set up the chat system database in Supabase.
+This folder contains all SQL files needed to set up the complete application database in Supabase, including chat, learning plans, and mentor verification.
 
 ## 🗂️ File Structure
 
 ```
 database/
-├── 01-chat-tables.sql      # Core tables (conversations, messages)
-├── 02-chat-security.sql    # Row Level Security policies
-├── 03-chat-functions.sql   # Helper functions
-├── 04-quiz-tables.sql      # Quiz results table
-└── README.md               # This file
+├── 01-chat-tables.sql           # Core chat tables (conversations, messages)
+├── 02-chat-security.sql         # Chat RLS policies
+├── 03-chat-functions.sql        # Chat helper functions
+├── 04-quiz-tables.sql           # Quiz results table
+├── 05-mentor-verification.sql   # Mentor verification system
+├── 06-learning-plans.sql        # Study schedules, milestones, profiles
+└── README.md                    # This file
 ```
 
 ## 🚀 Installation Steps
@@ -51,6 +53,18 @@ database/
 -- Then click "Run" or press Ctrl+Enter
 ```
 
+#### 5️⃣ Set Up Mentor Verification
+```sql
+-- Copy and paste contents of: 05-mentor-verification.sql
+-- Then click "Run" or press Ctrl+Enter
+```
+
+#### 6️⃣ Create Learning Plans Tables
+```sql
+-- Copy and paste contents of: 06-learning-plans.sql
+-- Then click "Run" or press Ctrl+Enter
+```
+
 ### Step 3: Verify Installation
 
 Run this query to verify everything is set up:
@@ -60,7 +74,14 @@ Run this query to verify everything is set up:
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
-AND table_name IN ('conversations', 'messages', 'user_quiz_results');
+AND table_name IN (
+  'conversations',
+  'messages',
+  'user_quiz_results',
+  'study_schedules',
+  'milestones',
+  'profiles'
+);
 
 -- Check functions exist
 SELECT routine_name
@@ -70,8 +91,8 @@ AND routine_name IN ('get_or_create_conversation', 'get_unread_count', 'mark_con
 ```
 
 You should see:
-- 3 tables: `conversations`, `messages`, `user_quiz_results`
-- 3 functions: `get_or_create_conversation`, `get_unread_count`, `mark_conversation_read`
+- 6 tables: `conversations`, `messages`, `user_quiz_results`, `study_schedules`, `milestones`, `profiles`
+- 5+ functions: `get_or_create_conversation`, `get_unread_count`, `mark_conversation_read`, `get_user_schedule`, `get_user_milestones`
 
 ## 📊 Database Schema
 

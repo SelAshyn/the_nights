@@ -70,12 +70,12 @@ export const MentorNavbar = () => {
   const experience = mentor?.user_metadata?.experience || '';
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-white/40 backdrop-blur-sm border-b border-purple-100">
+    <header className="fixed inset-x-0 top-0 z-50 bg-black/40 backdrop-blur-sm border-b border-black">
       <nav className="flex items-center justify-between p-4 lg:px-8 max-w-7xl mx-auto" aria-label="Global">
         <div className="flex items-center gap-2">
           <Link href="/mentor/dashboard" className="flex items-center gap-2">
             <img src="/logo.svg" width="35px" height="35px" className="lg:w-[50px] lg:h-[50px]" />
-            <span className={`${poppins.className} text-lg lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent tracking-wide`}>MentorLaunch</span>
+            <span className={`${poppins.className} text-lg lg:text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent tracking-wide`}>UNITE</span>
           </Link>
         </div>
 
@@ -83,19 +83,19 @@ export const MentorNavbar = () => {
         <div className="hidden md:flex gap-x-4 lg:gap-x-8">
           <Link
             href="/mentor/dashboard"
-            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-slate-700 hover:text-purple-600 transition-colors tracking-wide`}
+            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-white-700 hover:text-teal-400 transition-colors tracking-wide`}
           >
             Dashboard
           </Link>
           <Link
             href="/mentor/mentees"
-            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-slate-700 hover:text-purple-600 transition-colors tracking-wide`}
+            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-white-700 hover:text-teal-400 transition-colors tracking-wide`}
           >
             My Mentees
           </Link>
           <Link
             href="/mentor/messages"
-            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-slate-700 hover:text-purple-600 transition-colors tracking-wide`}
+            className={`${poppins.className} font-semibold leading-6 text-sm lg:text-base text-white-700 hover:text-teal-400 transition-colors tracking-wide`}
           >
             Messages
           </Link>
@@ -120,14 +120,14 @@ export const MentorNavbar = () => {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowAccountMenu(!showAccountMenu)}
-              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-4 py-2 rounded-full hover:bg-purple-50 transition-colors"
+              className="flex items-center gap-2 lg:gap-3 px-2 lg:px-4 py-2 rounded-full hover:bg-teal-50 transition-colors"
             >
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center text-white font-bold text-sm lg:text-base">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-r from-teal-600 to-cyan-600 flex items-center justify-center text-white font-bold text-sm lg:text-base shadow-lg shadow-teal-500/30">
                 {getInitials(mentorName)}
               </div>
-              <span className="hidden lg:block text-slate-700 font-semibold">{mentorName}</span>
+              <span className="hidden lg:block text-white font-semibold">{mentorName}</span>
               <svg
-                className={`hidden lg:block w-4 h-4 text-slate-600 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
+                className={`hidden lg:block w-4 h-4 text-white transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -137,10 +137,10 @@ export const MentorNavbar = () => {
             </button>
 
             {showAccountMenu && (
-              <div className="absolute right-0 mt-2 w-72 lg:w-80 bg-white rounded-2xl shadow-xl border border-purple-200 overflow-hidden animate-scale-up">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+              <div className="absolute right-0 mt-2 w-72 lg:w-80 bg-slate-800 rounded-2xl shadow-xl border border-teal-500/30 overflow-hidden animate-scale-up">
+                <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 text-white">
                   <div className="flex items-center gap-4 mb-3">
-                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl">
+                    <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-teal-500/30">
                       {getInitials(mentorName)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -155,22 +155,22 @@ export const MentorNavbar = () => {
 
                 <div className="p-4 space-y-3">
                   {profession && (
-                    <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                    <div className="bg-slate-700/50 rounded-xl p-4 border border-teal-500/30">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xl">💼</span>
-                        <h4 className="font-semibold text-slate-900">Profession</h4>
+                        <h4 className="font-semibold text-white">Profession</h4>
                       </div>
-                      <p className="text-slate-700 font-medium">{profession}</p>
+                      <p className="text-slate-300 font-medium">{profession}</p>
                     </div>
                   )}
 
                   {experience && (
-                    <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                    <div className="bg-slate-700/50 rounded-xl p-4 border border-teal-500/30">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xl">⭐</span>
-                        <h4 className="font-semibold text-slate-900">Experience</h4>
+                        <h4 className="font-semibold text-white">Experience</h4>
                       </div>
-                      <p className="text-slate-700 font-medium">{experience}</p>
+                      <p className="text-slate-300 font-medium">{experience}</p>
                     </div>
                   )}
 
@@ -181,7 +181,7 @@ export const MentorNavbar = () => {
                         router.push('/mentor/profile');
                       }}
                       variant="outline"
-                      className="w-full justify-center border-purple-300 text-purple-600 hover:bg-purple-50"
+                      className="w-full justify-center border-teal-500/30 text-teal-400 hover:bg-teal-500/10"
                       size="sm"
                     >
                       Edit Profile
@@ -189,7 +189,7 @@ export const MentorNavbar = () => {
                     <Button
                       onClick={handleSignOut}
                       variant="outline"
-                      className="w-full justify-center text-red-600 hover:bg-red-50 hover:border-red-300"
+                      className="w-full justify-center text-red-400 hover:bg-red-500/10 hover:border-red-500/30"
                       size="sm"
                     >
                       Sign Out

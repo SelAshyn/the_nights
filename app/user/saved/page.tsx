@@ -3,84 +3,46 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Button } from '@/components/ui/Button';
 import { UserNavbar } from '@/components/UserNavbar';
 import { Chat } from '@/components/Chat';
-import type { Career } from '../page';
 
 export const dynamic = 'force-dynamic';
 
-export default function SavedCareersPage() {
+type SavedCareer = {
+  id: string;
+  user_id: string;
+  career_title: string;
+  career_description?: string;
+  education?: string;
+  field_of_study?: string;
+  top_skills?: string[];
+  certifications?: string[];
+  possible_job_titles?: string[];
+  universities?: string[];
+  extracurriculars?: string[];
+  financial_guidance?: string[];
+  career_path?: string;
+  salary_range?: string;
+  growth_potential?: string;
+  fit_score?: number;
+  created_at: string;
+};
+
+export default function SavedPage() {
   const [loading, setLoading] = useState(true);
-  const [savedCareerTitles, setSavedCareerTitles] = useState<string[]>([]);
-  const [allCareers, setAllCareers] = useState<Career[]>([]);
+  const [savedCareers, setSavedCareers] = useState<SavedCareer[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          router.push('/auth');
-          return;
-        }
-
-        const userId = session.user.id;
-        const userKey = (key: string) => `${key}_${userId}`;
-
-        // Load saved career titles (user-specific)
-        const saved = localStorage.getItem(userKey('savedCareers'));
-        if (saved) {
-          try {
-            const titles = JSON.parse(saved);
-            setSavedCareerTitles(titles);
-            console.log('Loaded saved career titles:', titles);
-          } catch (e) {
-            console.warn('Invalid savedCareers in localStorage');
-          }
-        }
-
-        // Load all careers from user-specific localStorage or database
-        const careersData = localStorage.getItem(userKey('careerSuggestions'));
-        if (careersData) {
-          try {
-            const careers = JSON.parse(careersData);
-            setAllCareers(careers);
-            console.log('Loaded careers from localStorage:', careers.length);
-          } catch (e) {
-            console.warn('Invalid careerSuggestions in localStorage');
-          }
-        } else {
-          // Try to load from database
-          console.log('No careers in localStorage, fetching from database...');
-          await fetchCareersFromDatabase(session.access_token);
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error('Auth or init error', err);
-        setLoading(false);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/auth');
+        return;
       }
-    };
 
-    const fetchCareersFromDatabase = async (accessToken: string) => {
-      try {
-        const response = await fetch('/api/quiz/get', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        });
-
-        if (response.ok) {
-          const { careers } = await response.json();
-          if (careers && careers.length > 0) {
-            setAllCareers(careers);
-            console.log('Loaded careers from database:', careers.length);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch careers from database:', err);
-      }
+      await fetchSavedCareers();
+      setLoading(false);
     };
 
     init();
@@ -92,151 +54,250 @@ export default function SavedCareersPage() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  // Listen for storage changes (when saved from another tab or page)
-  useEffect(() => {
-    const handleStorageChange = async (e: StorageEvent) => {
+  const fetchSavedCareers = async () => {
+    try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const userId = session.user.id;
-      const userKey = (key: string) => `${key}_${userId}`;
+      console.log('Fetching saved careers for user:', session.user.id);
 
-      if (e.key === userKey('savedCareers') && e.newValue) {
-        try {
-          setSavedCareerTitles(JSON.parse(e.newValue));
-        } catch (err) {
-          console.warn('Failed to parse savedCareers from storage event');
-        }
+      const { data: saved, error: savedError } = await supabase
+        .from('saved_careers')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (savedError) {
+        console.error('Error fetching saved careers:');
+        console.error('Message:', savedError.message);
+        console.error('Code:', savedError.code);
+        console.error('Details:', savedError.details);
+        console.error('Hint:', savedError.hint);
+        return;
       }
-      if (e.key === userKey('careerSuggestions') && e.newValue) {
-        try {
-          setAllCareers(JSON.parse(e.newValue));
-        } catch (err) {
-          console.warn('Failed to parse careerSuggestions from storage event');
-        }
-      }
-    };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const removeSavedCareer = async (careerTitle: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const userId = session.user.id;
-    const userKey = (key: string) => `${key}_${userId}`;
-
-    const updated = savedCareerTitles.filter((title) => title !== careerTitle);
-    setSavedCareerTitles(updated);
-    localStorage.setItem(userKey('savedCareers'), JSON.stringify(updated));
+      console.log('Saved careers loaded:', saved?.length || 0);
+      setSavedCareers(saved || []);
+    } catch (error: any) {
+      console.error('Exception loading saved careers:', error?.message);
+    }
   };
 
-  const savedCareers = allCareers.filter((career) => savedCareerTitles.includes(career.title));
+  const removeSaved = async (careerId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-  console.log('Saved page state:', {
-    savedCareerTitles,
-    allCareersCount: allCareers.length,
-    savedCareersCount: savedCareers.length
-  });
+      const { error } = await supabase
+        .from('saved_careers')
+        .delete()
+        .eq('id', careerId)
+        .eq('user_id', session.user.id);
+
+      if (error) {
+        console.error('Error removing saved career:', error);
+        return;
+      }
+
+      console.log('Career removed successfully');
+      // Refresh list
+      fetchSavedCareers();
+    } catch (error) {
+      console.error('Error removing saved career:', error);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-teal-900">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-200 border-t-teal-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-teal-900 relative overflow-hidden">
       <UserNavbar />
 
-      <div className="pt-28 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8">
-            <h1 className="text-4xl font-heading font-bold text-slate-900 mb-2">⭐ Saved Careers</h1>
-            <p className="text-slate-600 text-lg">Your bookmarked career paths for future reference</p>
+      {/* Animated gradient orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-cyan-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-purple-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="pt-28 pb-12 relative z-10 max-w-7xl mx-auto px-4">
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+            <span className="text-xl">💼</span>
+            Saved Careers
           </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+            Your Saved Career Paths
+          </h1>
+          <p className="text-slate-300 text-lg">
+            Career options you've bookmarked for exploration
+          </p>
+        </div>
 
-          {savedCareers.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4">📚</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">No Saved Careers Yet</h2>
-              <p className="text-slate-600 mb-6">Start exploring careers and save the ones you're interested in!</p>
-              <Button onClick={() => router.push('/user')} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                Explore Careers
-              </Button>
+        {savedCareers.length === 0 ? (
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-12 border border-teal-500/20 text-center">
+            <div className="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {savedCareers.map((career, idx) => (
-                <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-2xl font-semibold text-slate-900">{career.title}</h3>
-                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                          Saved
+            <h3 className="text-xl font-semibold text-white mb-2">No Saved Careers Yet</h3>
+            <p className="text-slate-400 mb-6">
+              Start exploring career paths and save your favorites for easy access
+            </p>
+            <button
+              onClick={() => router.push('/user')}
+              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-3 rounded-full font-semibold transition-all shadow-lg shadow-teal-500/20"
+            >
+              Explore Careers
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {savedCareers.map((career) => (
+              <div
+                key={career.id}
+                className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 hover:border-teal-500/40 transition-all shadow-xl"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-2xl font-bold text-white">
+                        {career.career_title}
+                      </h3>
+                      {career.fit_score && (
+                        <span className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                          {career.fit_score}
                         </span>
-                      </div>
-                      <p className="text-slate-600 mb-4">{career.description}</p>
+                      )}
+                    </div>
+                    {career.career_description && (
+                      <p className="text-slate-300 text-sm mb-3">
+                        {career.career_description}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeSaved(career.id)}
+                    className="text-red-400 hover:text-red-300 transition-colors ml-4"
+                    title="Remove from saved"
+                  >
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </button>
+                </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <div className="text-sm text-slate-500">Salary Range</div>
-                          <div className="font-semibold text-slate-900">{career.salary || '—'}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-slate-500">Growth Potential</div>
-                          <div className="font-semibold text-slate-900">{career.growth || '—'}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-slate-500">Education</div>
-                          <div className="font-semibold text-slate-900">{career.education || '—'}</div>
-                        </div>
-                      </div>
+                {career.education && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-teal-400 uppercase tracking-wide">Education</span>
+                    <p className="text-white font-semibold mt-1">{career.education}</p>
+                    {career.field_of_study && (
+                      <p className="text-slate-300 text-sm">{career.field_of_study}</p>
+                    )}
+                  </div>
+                )}
 
-                      <div className="mb-4">
-                        <div className="text-sm text-slate-500 mb-2">Key Skills</div>
-                        <div className="flex flex-wrap gap-2">
-                          {(career.skills || []).slice(0, 8).map((skill, i) => (
-                            <span key={i} className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium">
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => router.push('/user')}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                          size="sm"
+                {career.top_skills && career.top_skills.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wide">Top Skills</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {career.top_skills.map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-block bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full text-xs font-semibold"
                         >
-                          View Full Details
-                        </Button>
-                        <Button
-                          onClick={() => removeSavedCareer(career.title)}
-                          variant="outline"
-                          className="text-red-600 hover:bg-red-50 hover:border-red-300"
-                          size="sm"
-                        >
-                          🗑️ Remove
-                        </Button>
-                      </div>
+                          {skill}
+                        </span>
+                      ))}
                     </div>
                   </div>
+                )}
+
+                {career.certifications && career.certifications.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-purple-400 uppercase tracking-wide">Certifications</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {career.certifications.map((cert, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-block bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-semibold"
+                        >
+                          {cert}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {career.possible_job_titles && career.possible_job_titles.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Possible Job Titles</span>
+                    <p className="text-slate-300 text-sm mt-1">{career.possible_job_titles.join(', ')}</p>
+                  </div>
+                )}
+
+                {career.universities && career.universities.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-green-400 uppercase tracking-wide">Universities</span>
+                    <p className="text-slate-300 text-sm mt-1">{career.universities.join(', ')}</p>
+                  </div>
+                )}
+
+                {career.extracurriculars && career.extracurriculars.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Extracurriculars</span>
+                    <p className="text-slate-300 text-sm mt-1">{career.extracurriculars.join(', ')}</p>
+                  </div>
+                )}
+
+                {career.financial_guidance && career.financial_guidance.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-xs font-semibold text-pink-400 uppercase tracking-wide">Financial Guidance</span>
+                    <p className="text-slate-300 text-sm mt-1">{career.financial_guidance.join(', ')}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
+                  {career.salary_range && (
+                    <div>
+                      <span className="text-xs text-slate-400">Estimated Salary</span>
+                      <p className="text-sm font-semibold text-green-400">{career.salary_range}</p>
+                    </div>
+                  )}
+                  {career.growth_potential && (
+                    <div>
+                      <span className="text-xs text-slate-400">Growth</span>
+                      <p className="text-sm font-semibold text-purple-400">{career.growth_potential}</p>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => router.push(`/user?career=${encodeURIComponent(career.career_title)}`)}
+                    className="flex-1 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-lg shadow-teal-500/20"
+                  >
+                    Explore More
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-500 mt-3">
+                  Saved {new Date(career.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Chat />
     </div>
   );
 }
-

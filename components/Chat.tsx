@@ -73,7 +73,10 @@ export function Chat() {
   const loadConversations = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setConversations([]);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('conversations')
@@ -81,16 +84,54 @@ export function Chat() {
         .or(`user1_id.eq.${session.user.id},user2_id.eq.${session.user.id}`)
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
-      setConversations(data || []);
+      if (error) {
+        // Silently handle - table might not exist yet
+        setConversations([]);
+        return;
+      }
+
+      // Fetch names from profiles for each conversation
+      if (data && data.length > 0) {
+        const conversationsWithNames = await Promise.all(
+          data.map(async (conv) => {
+            const otherUserId = conv.user1_id === session.user.id ? conv.user2_id : conv.user1_id;
+
+            // Get the other user's profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', otherUserId)
+              .single();
+
+            // Update conversation with actual name
+            return {
+              ...conv,
+              user1_name: conv.user1_id === session.user.id
+                ? session.user.user_metadata?.full_name || session.user.email || 'You'
+                : profile?.full_name || profile?.email || 'User',
+              user2_name: conv.user2_id === session.user.id
+                ? session.user.user_metadata?.full_name || session.user.email || 'You'
+                : profile?.full_name || profile?.email || 'User'
+            };
+          })
+        );
+        setConversations(conversationsWithNames);
+      } else {
+        setConversations(data || []);
+      }
 
       // Get unread count
-      const { data: countData } = await supabase.rpc('get_unread_count', {
+      const { data: countData, error: countError } = await supabase.rpc('get_unread_count', {
         p_user_id: session.user.id
       });
-      setUnreadCount(countData || 0);
-    } catch (error) {
-      console.error('Error loading conversations:', error);
+
+      if (countError) {
+        console.error('Error getting unread count:', countError);
+      } else {
+        setUnreadCount(countData || 0);
+      }
+    } catch (error: any) {
+      console.error('Error loading conversations:', error?.message || error || 'Unknown error');
     }
   };
 
@@ -174,7 +215,7 @@ export function Chat() {
           setIsOpen(true);
           setUnreadCount(0);
         }}
-        className="fixed bottom-6 left-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-2xl z-50 transition-all hover:scale-110"
+        className="fixed bottom-6 left-6 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-2xl shadow-teal-500/30 z-50 transition-all hover:scale-110"
         aria-label="Open chat"
       >
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,9 +235,9 @@ export function Chat() {
   // ============================================
   if (!activeConversation) {
     return (
-      <div className="fixed bottom-6 left-6 bg-white rounded-2xl shadow-2xl border border-slate-200 w-86 h-[500px] flex flex-col z-50">
+      <div className="fixed bottom-6 left-6 bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/30 w-[400px] h-[500px] flex flex-col z-50">
         {/* Header */}
-        <div className="p-4 border-b bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-2xl">
+        <div className="p-4 border-b border-teal-500/30 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-t-2xl">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-lg">Messages</h3>
             <button
@@ -227,15 +268,15 @@ export function Chat() {
                   <button
                     key={conv.id}
                     onClick={() => setActiveConversation(conv)}
-                    className="w-full p-4 rounded-xl hover:bg-slate-50 transition-colors text-left mb-2 border border-transparent hover:border-slate-200"
+                    className="w-full p-4 rounded-xl hover:bg-slate-700/50 transition-colors text-left mb-2 border border-transparent hover:border-teal-500/30"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-lg shadow-teal-500/20">
                         {other.name.substring(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 truncate">{other.name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-semibold text-white truncate">{other.name}</p>
+                        <p className="text-xs text-slate-400">
                           {new Date(conv.updated_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -256,9 +297,9 @@ export function Chat() {
   const otherUser = getOtherUser(activeConversation);
 
   return (
-    <div className="fixed bottom-6 left-6 bg-white rounded-2xl shadow-2xl border border-slate-200 w-96 h-[500px] flex flex-col z-50">
+    <div className="fixed bottom-6 w-[450px] left-6 bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/30 h-[500px] flex flex-col z-50">
       {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-2xl">
+      <div className="p-4 border-b border-teal-500/30 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-t-2xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -292,7 +333,7 @@ export function Chat() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 bg-slate-900/50 space-y-4">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -301,8 +342,8 @@ export function Chat() {
             <div
               className={`max-w-[75%] rounded-2xl px-4 py-2 ${
                 msg.sender_id === userId
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                  : 'bg-white border border-slate-200 text-slate-900'
+                  ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-lg shadow-teal-500/20'
+                  : 'bg-slate-700/50 backdrop-blur-sm border border-teal-500/30 text-white'
               }`}
             >
               <p className="text-sm break-words">{msg.content}</p>
@@ -320,7 +361,7 @@ export function Chat() {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t bg-white rounded-b-2xl">
+      <div className="p-4 border-t border-teal-500/30 bg-slate-800/90 rounded-b-2xl">
         <div className="flex gap-2">
           <input
             type="text"
@@ -328,12 +369,12 @@ export function Chat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-3 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="flex-1 px-4 py-3 border-2 border-teal-500/30 bg-slate-700/50 backdrop-blur-sm text-white placeholder-slate-400 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+            className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-full px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold shadow-lg shadow-teal-500/20"
           >
             Send
           </button>

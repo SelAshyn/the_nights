@@ -23,7 +23,9 @@ export default function MenteeAuthPage() {
       return 'Please enter a valid email address';
     }
 
-    // Trusted domains whitelist
+    const domain = email.split('@')[1]?.toLowerCase();
+
+    // Trusted consumer email providers
     const trustedDomains = [
       'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
       'icloud.com', 'protonmail.com', 'aol.com', 'mail.com',
@@ -31,11 +33,31 @@ export default function MenteeAuthPage() {
       'yahoo.co.uk', 'yahoo.co.in', 'outlook.co.uk', 'googlemail.com'
     ];
 
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (!trustedDomains.includes(domain)) {
-      return 'Please use an email from Gmail, Yahoo, Outlook, or other recognized providers';
+    // Check if it's a trusted consumer email
+    if (trustedDomains.includes(domain)) {
+      return null;
     }
 
+    // Allow organizational/educational emails (.edu, .ac, .org, .gov, etc.)
+    const organizationalTLDs = ['.edu', '.ac.', '.org', '.gov', '.mil'];
+    const isOrganizational = organizationalTLDs.some(tld => domain.includes(tld));
+
+    if (isOrganizational) {
+      return null;
+    }
+
+    // Block disposable/temporary email services
+    const disposableDomains = [
+      'tempmail.com', 'throwaway.email', 'guerrillamail.com',
+      '10minutemail.com', 'mailinator.com', 'trashmail.com',
+      'temp-mail.org', 'fakeinbox.com', 'yopmail.com'
+    ];
+
+    if (disposableDomains.includes(domain)) {
+      return 'Temporary email addresses are not allowed';
+    }
+
+    // For other domains, just ensure basic validity
     return null;
   };
 
@@ -46,35 +68,12 @@ export default function MenteeAuthPage() {
 
     try {
       if (isSignUp) {
-        // Client-side validation first
+        // Client-side validation only
         const clientError = validateEmailClient(email);
         if (clientError) {
           setError(clientError);
           setLoading(false);
           return;
-        }
-
-        // 🔍 Verify email with API (optional additional check)
-        try {
-          const verifyResponse = await fetch('/api/verify-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-          });
-
-          if (verifyResponse.ok) {
-            const verifyData = await verifyResponse.json();
-            console.log('Email verification result:', verifyData);
-
-            if (!verifyData.valid) {
-              setError(verifyData.error || 'Invalid email address');
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (verifyError: any) {
-          console.error('Email verification API error:', verifyError);
-          // Continue with client-side validation only
         }
 
         // 🔐 Supabase sign-up
@@ -133,27 +132,27 @@ export default function MenteeAuthPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-r from-gray-900 via-slate-900 to-teal-900">
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
           <img src="/logo.svg" width="64px" height="64px" />
         </div>
         <div className="mt-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+          <div className="inline-flex items-center gap-2 bg-teal-900/50 text-teal-300 px-4 py-2 rounded-full text-sm font-semibold mb-4 border border-teal-500/30">
             <span className="text-xl">🎓</span>
             Student Portal
           </div>
-          <h2 className="text-4xl font-heading font-bold tracking-tight text-slate-900">
+          <h2 className="text-4xl font-heading font-bold tracking-tight text-white">
             {isSignUp ? "Start Your Journey" : "Welcome Back"}
           </h2>
-          <p className="mt-2 text-base text-slate-600 font-body">
+          <p className="mt-2 text-base text-slate-300 font-body">
             {isSignUp ? "Create your account to discover your career path" : "Sign in to continue your career exploration"}
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-white/90 backdrop-blur-sm px-6 py-8 shadow-2xl sm:rounded-2xl sm:px-12 border border-indigo-100">
+        <div className="bg-slate-800/90 backdrop-blur-sm px-6 py-8 shadow-2xl sm:rounded-2xl sm:px-12 border border-teal-500/20">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="rounded-lg bg-red-50 p-4 border border-red-200">
@@ -167,7 +166,7 @@ export default function MenteeAuthPage() {
 
             {isSignUp && (
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 font-body">
+                <label htmlFor="fullName" className="block text-sm font-medium text-slate-300 font-body">
                   Full Name
                 </label>
                 <div className="mt-1">
@@ -178,14 +177,14 @@ export default function MenteeAuthPage() {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm transition-colors text-slate-900"
+                    className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-teal-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 font-body">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 font-body">
                 Email address
               </label>
               <div className="mt-1">
@@ -197,13 +196,13 @@ export default function MenteeAuthPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm transition-colors text-slate-900"
+                  className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-teal-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 font-body">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 font-body">
                 Password
               </label>
               <div className="mt-1">
@@ -215,7 +214,7 @@ export default function MenteeAuthPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm transition-colors text-slate-900"
+                  className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-teal-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
               </div>
             </div>
@@ -234,17 +233,17 @@ export default function MenteeAuthPage() {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-300" />
+                <div className="w-full border-t border-slate-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white/90 px-3 text-slate-500 font-body">or</span>
+                <span className="bg-slate-800 px-3 text-slate-400 font-body">or</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="mt-6 w-full text-center text-base text-indigo-600 hover:text-indigo-700 font-semibold transition-colors font-body"
+              className="mt-6 w-full text-center text-base text-teal-400 hover:text-teal-300 font-semibold transition-colors font-body"
             >
               {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
@@ -259,7 +258,7 @@ export default function MenteeAuthPage() {
         >
           <path
             fill="url(#gradient-mentee)"
-            fillOpacity=".3"
+            fillOpacity=".2"
             d="M317.219 518.975L203.852 678 0 438.341l317.219 80.634 204.172-286.402c1.307 132.337 45.083 346.658 209.733 145.248C936.936 126.058 882.053-94.234 1031.02 41.331c119.18 108.451 130.68 295.337 121.53 375.223L855 299l21.173 362.054-558.954-142.079z"
           />
           <defs>
@@ -271,8 +270,8 @@ export default function MenteeAuthPage() {
               y2="474.645"
               gradientUnits="userSpaceOnUse"
             >
-              <stop stopColor="#6366f1" />
-              <stop offset={1} stopColor="#8b5cf6" />
+              <stop stopColor="#14b8a6" />
+              <stop offset={1} stopColor="#06b6d4" />
             </linearGradient>
           </defs>
         </svg>

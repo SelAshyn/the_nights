@@ -35,13 +35,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${inter.variable} ${poppins.variable} ${spaceGrotesk.variable} antialiased relative`}
+        className={`${inter.variable} ${poppins.variable} ${spaceGrotesk.variable} antialiased relative text-white`}
       >
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-50 via-white to-blue-50" />
-        <div className="fixed inset-0 z-10 pointer-events-none opacity-70">
+        <div className="fixed inset-0 -z-10 bg-gradient-to-r from-gray-900 via-slate-900 to-teal-900" />
+        <div className="fixed inset-0 z-10 pointer-events-none opacity-30">
           <LightRays
             raysOrigin="top-center"
-            raysColor="#8b5cf6"
+            raysColor="#14b8a6"
             raysSpeed={0.5}
             lightSpread={3.0}
             rayLength={1.0}
