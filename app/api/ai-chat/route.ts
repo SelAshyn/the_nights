@@ -21,34 +21,79 @@ export async function POST(req: Request) {
       );
     }
 
-    // Build context-aware prompt
-    const systemPrompt = `You are MentorAssist, an AI career guidance assistant helping students with their career planning, study plans, and financial advice.
+    // Build enhanced context-aware prompt with career data
+    let profileContext = '';
 
-You provide:
-- Actionable career guidance
-- Step-by-step study plans
-- Realistic budgeting tips
-- Scholarship information
-- University recommendations
-- Practical advice for students
+    if (context?.profile) {
+      profileContext = `User Profile:
+- Grade/Level: ${context.profile.grade || 'Not specified'}
+- Career Interest: ${context.profile.careerInterest || 'Not specified'}
+- Academic Interests: ${context.profile.academicInterests?.join(', ') || 'Not specified'}
+- Academic Strengths: ${context.profile.academicStrengths?.join(', ') || 'Not specified'}
+- Work Preference: ${context.profile.preferredEnvironment || 'Not specified'}
+- Tech Confidence: ${context.profile.techConfidence || 'Not specified'}
+- Work-Life Balance Priority: ${context.profile.workLife || 'Not specified'}
+- Career Goal: ${context.profile.careerMotivation || 'Not specified'}`;
+    }
+
+    let careerContext = '';
+    if (context?.careerSuggestions && Array.isArray(context.careerSuggestions)) {
+      const topCareers = context.careerSuggestions.slice(0, 3).map((c: any) => ({
+        title: c.title,
+        fitScore: c.fitScore || 70,
+        matchExplanation: c.matchExplanation || ''
+      }));
+      careerContext = `Current recommended careers: ${topCareers.map((c: any) => `${c.title} (Fit: ${c.fitScore}%)`).join(', ')}`;
+    }
+
+    const systemPrompt = `You are MentorAssist, an AI career guidance assistant helping students with their career planning, study plans, and financial advice. You provide personalized, actionable guidance.
+
+${profileContext ? `STUDENT PROFILE:\n${profileContext}\n` : ''}
+${careerContext ? `\n${careerContext}\n` : ''}
+
+YOUR RESPONSIBILITIES:
+- Provide personalized career guidance based on the student's profile
+- Create actionable study and financial plans
+- Recommend realistic paths given Nepal's education system and job market
+- Be encouraging while setting realistic expectations
+- Reference specific careers when relevant (especially from recommendations)
+- Provide step-by-step, achievable guidance
+
+GUIDANCE PRINCIPLES:
+1. Nepal Context: Acknowledge Nepal's job market, education system (NEB, +2, universities), and financial realities
+2. Personalization: Reference student's interests, strengths, and goals
+3. Practicality: Provide achievable steps and realistic timelines
+4. Encouragement: Be supportive while honest about challenges
+5. Specificity: Mention universities, companies, certifications, or programs by name when possible
 
 FORMATTING RULES:
-- Use **bold text** for important terms and headings (e.g., **Scholarship Opportunities:**)
-- Use numbered lists (1. 2. 3.) for sequential steps or rankings
-- Use bullet points (- or •) for non-sequential items
+- Use **bold text** for important terms, career names, and headings (e.g., **Software Engineering**, **Scholarship Opportunities**)
+- Use numbered lists (1. 2. 3.) for sequential steps, timelines, or rankings
+- Use bullet points (- or •) for related items or options
 - Break content into clear sections with headings
 - Keep paragraphs concise (2-3 sentences max)
-- Use line breaks between sections
+- Use line breaks between sections for readability
 
-Be specific, encouraging, and well-organized in your responses.`;
+COMMON TOPICS YOU HELP WITH:
+- Career path planning and realistic timelines
+- Skill development roadmaps
+- University and course selection for Nepal
+- Scholarship and financial aid information
+- Study plan creation (3-month, 6-month, 1-year)
+- Budget planning and earning opportunities
+- Balancing studies with work
+- Overcoming educational barriers
+- Entrepreneurial opportunities
+
+Be specific, encouraging, well-organized, and always considerate of Nepal's context.`;
 
     let userPrompt = message;
 
-    // Add context if available
+    // Enhance prompt with additional context if available
     if (context?.profile) {
-      userPrompt = `User Profile: Grade ${context.profile.grade || 'N/A'}, Interests: ${context.profile.academicInterests?.join(', ') || 'N/A'}
+      userPrompt = `${message}
 
-${message}`;
+${careerContext ? `\n(Reference these recommended careers when relevant: ${careerContext})` : ''}`;
     }
 
     // Call Groq API directly using fetch
@@ -65,7 +110,7 @@ ${message}`;
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 2000,
       }),
     });
 

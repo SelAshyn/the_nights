@@ -13,22 +13,94 @@ export const dynamic = 'force-dynamic';
 export type Career = {
   title: string;
   description: string;
-  salary?: string;
-  growth?: string;
-  education?: string;
-  degrees?: string[];
-  skills?: string[];
-  extracurricular?: string[];
-  certifications?: string[];
-  jobTitles?: string[];
-  universities?: string[];
-  financialAdvice?: {
-    budgetingTips?: string[];
-    savingTips?: string[];
-    educationCostAdvice?: string;
-    scholarshipSuggestions?: string;
-    earningWhileStudying?: string;
+  fitScore?: number;
+  matchExplanation?: string;
+  nepalOpportunities?: string;
+  remoteWork?: string;
+  salary?: string | {
+    entryLevel: string;
+    midCareer: string;
+    seniorLevel: string;
+    globalComparison: string;
   };
+  growth?: string | {
+    nepalMarket: string;
+    globalTrend: string;
+    automationRisk: string;
+    futureOutlook: string;
+  };
+  education?: string | {
+    pathway: string;
+    timeline: string;
+    nepalOptions: string[];
+    internationalOptions: any[];
+    costEstimate: {
+      nepal: string;
+      international: string;
+    };
+  };
+  degrees?: string[] | {
+    essential: string[];
+    recommended: string[];
+    alternative: string[];
+  };
+  skills?: string[] | {
+    technical: string[];
+    soft: string[];
+    developmentPlan: string;
+  };
+  extracurricular?: string[] | {
+    schoolLevel: string[];
+    undergraduate: string[];
+    online: string[];
+  };
+  certifications?: string[] | {
+    local: string[];
+    international: string[];
+    online: string[];
+  };
+  jobTitles?: string[] | {
+    entry: string[];
+    mid: string[];
+    senior: string[];
+    entrepreneurial: string[];
+  };
+  universities?: string[] | any[];
+  financialAdvice?: {
+    budgetingTips?: string[] | string;
+    savingTips?: string[] | string;
+    educationCostAdvice?: string;
+    scholarshipSuggestions?: string | {
+      government: string[];
+      university: string[];
+      international: string[];
+      corporate: string[];
+    };
+    earningWhileStudying?: string | {
+      partTime: string[];
+      freelance: string[];
+      internships: string[];
+      entrepreneurial: string[];
+    };
+  };
+  riskAssessment?: {
+    marketSaturation: string;
+    barriersToEntry: string;
+    adaptationRequired: string;
+    alternativePaths: string;
+  };
+  successMetrics?: {
+    shortTerm: string;
+    mediumTerm: string;
+    longTerm: string;
+    keyPerformanceIndicators: string;
+  };
+  fieldOfStudy?: string;
+  topSkills?: string[];
+  possibleJobTitles?: string[];
+  careerPath?: string;
+  salaryRange?: string;
+  growthPotential?: string;
 };
 
 export type FullQuizData = {
@@ -46,26 +118,141 @@ export type FullQuizData = {
 };
 
 // -------------------- Utilities --------------------
-function formatList(items?: string[], limit = 5) {
-  return (items || []).slice(0, limit).join(', ') || '—';
+function formatList(items?: string[] | any, limit = 5) {
+  if (!items) return '—';
+
+  if (Array.isArray(items)) {
+    return items.slice(0, limit).filter(Boolean).join(', ') || '—';
+  }
+
+  if (typeof items === 'string') {
+    return items.length > 100 ? items.substring(0, 100) + '...' : items;
+  }
+
+  // Handle object with nested arrays (e.g., certifications, jobTitles)
+  if (typeof items === 'object' && !Array.isArray(items)) {
+    const arrays = Object.values(items)
+      .filter((v) => Array.isArray(v))
+      .flat();
+    if (arrays.length > 0) {
+      return arrays.slice(0, limit).filter(Boolean).join(', ') || '—';
+    }
+  }
+
+  return '—';
+}
+
+function formatUniversities(unis?: any[], limit = 5) {
+  if (!unis) return '—';
+  if (!Array.isArray(unis)) return '—';
+
+  const names = unis
+    .map((u) => typeof u === 'string' ? u : u?.name)
+    .filter(Boolean)
+    .slice(0, limit);
+
+  return names.length > 0 ? names.join(', ') : '—';
 }
 
 function computeCareerScore(career: Career, profile?: FullQuizData) {
   let score = 50;
   if (!profile) return score;
 
-  if (profile.careerInterest && career.title.toLowerCase().includes(profile.careerInterest.toLowerCase())) score += 15;
+  // Career interest match
+  if (profile.careerInterest && career.title?.toLowerCase().includes(profile.careerInterest.toLowerCase())) {
+    score += 15;
+  }
 
+  // Skills overlap
   const profileSkills = (profile.skills || []).map((s) => s.toLowerCase());
-  const overlap = (career.skills || []).filter((s) => profileSkills.includes((s || '').toLowerCase()));
+
+  // Get career skills from various possible structures
+  const careerSkills = (() => {
+    if (Array.isArray(career.skills)) return career.skills;
+    if (career.skills && typeof career.skills === 'object' && 'technical' in career.skills) {
+      return [...(career.skills.technical || []), ...(career.skills.soft || [])];
+    }
+    if (career.topSkills && Array.isArray(career.topSkills)) {
+      return career.topSkills;
+    }
+    return [];
+  })();
+
+  const overlap = careerSkills.filter((s) =>
+    s && profileSkills.includes((s || '').toLowerCase())
+  );
   score += Math.min(20, overlap.length * 6);
 
+  // Tech confidence bonus
   if (profile.techConfidence === 'High') score += 7;
   if (profile.techConfidence === 'Medium') score += 3;
 
-  if (profile.studyGoal && ['bachelor', 'masters', 'phd'].some((g) => (profile.studyGoal || '').toLowerCase().includes(g))) score += 5;
+  // Study goal bonus
+  if (profile.studyGoal && ['bachelor', 'masters', 'phd'].some((g) =>
+    (profile.studyGoal || '').toLowerCase().includes(g)
+  )) {
+    score += 5;
+  }
 
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// -------------------- Enhanced Utilities --------------------
+function getSalaryDisplay(salary: any): string {
+  if (!salary) return 'N/A';
+
+  if (typeof salary === 'string') {
+    return salary;
+  }
+
+  if (typeof salary === 'object') {
+    // Show a meaningful range - prioritize showing entry to mid-career range
+    if (salary.entryLevel && salary.midCareer) {
+      return `${salary.entryLevel} → ${salary.midCareer}`;
+    }
+
+    if (salary.entryLevel) {
+      return salary.entryLevel;
+    }
+
+    if (salary.midCareer) {
+      return salary.midCareer;
+    }
+  }
+
+  return 'N/A';
+}
+
+function getGrowthDisplay(growth: any): string {
+  if (!growth) return 'N/A';
+
+  if (typeof growth === 'string') {
+    return growth;
+  }
+
+  if (typeof growth === 'object') {
+    if (growth.nepalMarket) {
+      return `${growth.nepalMarket} (${growth.automationRisk || 'Medium'} risk)`;
+    }
+  }
+
+  return 'N/A';
+}
+
+function getEducationDisplay(education: any): string {
+  if (!education) return 'N/A';
+
+  if (typeof education === 'string') {
+    return education.length > 50 ? education.substring(0, 50) + '...' : education;
+  }
+
+  if (typeof education === 'object') {
+    if (education.pathway) {
+      return education.pathway.length > 50 ? education.pathway.substring(0, 50) + '...' : education.pathway;
+    }
+  }
+
+  return 'N/A';
 }
 
 // -------------------- Hardcoded University Mapping --------------------
@@ -95,9 +282,667 @@ function getUniversitiesForCareer(title?: string): string[] {
   return HARD_CODED_UNIS.default;
 }
 
+// -------------------- Comprehensive Career Detail Modal --------------------
+function CareerDetailModal({ career, open, onClose }: { career: Career; open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  const salary = typeof career.salary === 'object' ? career.salary : null;
+  const growth = typeof career.growth === 'object' ? career.growth : null;
+  const education = typeof career.education === 'object' ? career.education : null;
+  const degrees = typeof career.degrees === 'object' ? career.degrees : null;
+  const skills = typeof career.skills === 'object' ? career.skills : null;
+  const extracurricular = typeof career.extracurricular === 'object' ? career.extracurricular : null;
+  const certifications = typeof career.certifications === 'object' ? career.certifications : null;
+  const jobTitles = typeof career.jobTitles === 'object' ? career.jobTitles : null;
+  const financialAdvice = career.financialAdvice || {};
+  const riskAssessment = career.riskAssessment;
+  const successMetrics = career.successMetrics;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+      <div className="bg-slate-900/95 backdrop-blur-sm rounded-2xl max-w-6xl w-full max-h-[90vh] shadow-2xl border border-teal-500/30 overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-teal-500/30 bg-gradient-to-r from-teal-600/20 to-cyan-600/20">
+          <div>
+            <h3 className="text-2xl font-bold text-white">{career.title}</h3>
+            <p className="text-slate-300 mt-1">{career.description}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-300 hover:text-white hover:bg-slate-700/50 px-4 py-2 rounded-lg transition-colors font-medium"
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Fit Score & Matching Section */}
+          {(career.fitScore !== undefined || career.matchExplanation) && (
+            <div className="lg:col-span-2 bg-gradient-to-r from-amber-500/10 to-orange-500/10 backdrop-blur-sm rounded-xl p-4 border border-amber-500/30">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {career.fitScore !== undefined && (
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="flex items-center justify-center h-16 w-16 rounded-lg bg-amber-600/20">
+                        <span className="text-2xl font-bold text-amber-400">{career.fitScore}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-amber-300">Your Fit Score</h5>
+                      <p className="text-xs text-slate-300 mt-1">
+                        {career.fitScore >= 85 ? 'Excellent match for your profile' :
+                         career.fitScore >= 75 ? 'Good match with strong potential' :
+                         career.fitScore >= 60 ? 'Interesting opportunity with effort' :
+                         'Growth opportunity to explore'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {career.matchExplanation && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg flex-shrink-0">💡</span>
+                    <div>
+                      <h5 className="text-sm font-semibold text-white mb-1">Why This Career?</h5>
+                      <p className="text-sm text-slate-300">{career.matchExplanation}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Salary & Market Analysis */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">💰 Salary & Market Analysis</h4>
+
+              {salary ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Entry Level</div>
+                      <div className="text-sm font-bold text-teal-400">{salary.entryLevel || 'N/A'}</div>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Mid Career</div>
+                      <div className="text-sm font-bold text-cyan-400">{salary.midCareer || 'N/A'}</div>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Senior Level</div>
+                      <div className="text-sm font-bold text-purple-400">{salary.seniorLevel || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  {salary.globalComparison && (
+                    <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                      <div className="text-sm font-semibold text-blue-300">Global Comparison</div>
+                      <div className="text-sm text-white mt-1">{salary.globalComparison}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">Salary information not available</div>
+              )}
+
+              {growth && (
+                <div className="mt-4 space-y-3">
+                  <h5 className="text-sm font-semibold text-white">Market Growth Analysis</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400">Nepal Market</div>
+                      <div className={`text-sm font-bold ${growth.nepalMarket === 'Very High' ? 'text-green-400' : growth.nepalMarket === 'High' ? 'text-teal-400' : 'text-yellow-400'}`}>
+                        {growth.nepalMarket || 'Medium'}
+                      </div>
+                    </div>
+                    <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400">Automation Risk</div>
+                      <div className={`text-sm font-bold ${growth.automationRisk === 'Low' ? 'text-green-400' : growth.automationRisk === 'Medium' ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {growth.automationRisk || 'Medium'}
+                      </div>
+                    </div>
+                  </div>
+                  {growth.futureOutlook && (
+                    <div className="mt-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/30">
+                      <div className="text-sm font-semibold text-emerald-300">Future Outlook</div>
+                      <div className="text-sm text-white mt-1">{growth.futureOutlook}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Education Pathway */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">🎓 Education Pathway</h4>
+
+              {education ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm text-slate-400">Timeline</div>
+                    <div className="text-sm font-semibold text-white mt-1">{education.timeline || 'Varies'}</div>
+                  </div>
+
+                  {education.pathway && (
+                    <div>
+                      <div className="text-sm text-slate-400">Step-by-Step Path</div>
+                      <div className="text-sm text-white mt-1 whitespace-pre-line">{education.pathway}</div>
+                    </div>
+                  )}
+
+                  {education.costEstimate && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div className="bg-slate-700/50 rounded-lg p-3">
+                        <div className="text-xs text-slate-400">In Nepal</div>
+                        <div className="text-sm font-bold text-teal-400">{education.costEstimate.nepal || 'N/A'}</div>
+                      </div>
+                      <div className="bg-slate-700/50 rounded-lg p-3">
+                        <div className="text-xs text-slate-400">International</div>
+                        <div className="text-sm font-bold text-cyan-400">{education.costEstimate.international || 'N/A'}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {education.nepalOptions && education.nepalOptions.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-sm text-slate-400 mb-2">Nepal University Options</div>
+                      <div className="flex flex-wrap gap-2">
+                        {education.nepalOptions.map((opt: string, i: number) => (
+                          <span key={i} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs border border-teal-500/30">
+                            {opt}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">Education information not available</div>
+              )}
+
+              {degrees && (
+                <div className="mt-4 space-y-3">
+                  <h5 className="text-sm font-semibold text-white">Degree Options</h5>
+                  <div className="space-y-2">
+                    {/* Add type check */}
+                    {typeof degrees === 'object' && !Array.isArray(degrees) && degrees.essential && degrees.essential.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-400">Essential Degrees</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {degrees.essential.map((d: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {typeof degrees === 'object' && !Array.isArray(degrees) && degrees.recommended && degrees.recommended.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-400">Recommended</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {degrees.recommended.map((d: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Handle array case if needed */}
+                    {Array.isArray(degrees) && degrees.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-400">All Degrees</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {degrees.map((d: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Skills & Development */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">🛠️ Skills & Development</h4>
+
+              {skills ? (
+                <div className="space-y-4">
+                  {/* Check if skills is structured object */}
+                  {typeof skills === 'object' && !Array.isArray(skills) ? (
+                    <>
+                      {skills.technical && skills.technical.length > 0 && (
+                        <div>
+                          <div className="text-sm text-slate-400 mb-2">Technical Skills</div>
+                          <div className="flex flex-wrap gap-2">
+                            {skills.technical.map((skill: string, i: number) => (
+                              <span key={i} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs border border-teal-500/30">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {skills.soft && skills.soft.length > 0 && (
+                        <div>
+                          <div className="text-sm text-slate-400 mb-2">Soft Skills</div>
+                          <div className="flex flex-wrap gap-2">
+                            {skills.soft.map((skill: string, i: number) => (
+                              <span key={i} className="px-2 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-xs border border-cyan-500/30">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {skills.developmentPlan && (
+                        <div className="mt-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                          <div className="text-sm font-semibold text-amber-300">Development Plan</div>
+                          <div className="text-sm text-white mt-1 whitespace-pre-line">{skills.developmentPlan}</div>
+                        </div>
+                      )}
+                    </>
+                  ) : Array.isArray(skills) ? (
+                    /* Handle simple array case */
+                    <div>
+                      <div className="text-sm text-slate-400 mb-2">All Skills</div>
+                      <div className="flex flex-wrap gap-2">
+                        {skills.map((skill: string, i: number) => (
+                          <span key={i} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs border border-teal-500/30">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-400">Invalid skills format</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">Skills information not available</div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Extracurricular & Certifications */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">📚 Extracurricular & Certifications</h4>
+
+              {/* Extracurricular Section */}
+              {extracurricular ? (
+                <div className="space-y-4">
+                  {/* Check if extracurricular is structured object */}
+                  {typeof extracurricular === 'object' && !Array.isArray(extracurricular) ? (
+                    <>
+                      {extracurricular.schoolLevel && extracurricular.schoolLevel.length > 0 && (
+                        <div>
+                          <div className="text-sm text-slate-400 mb-1">School Level Activities</div>
+                          <div className="flex flex-wrap gap-2">
+                            {extracurricular.schoolLevel.map((activity: string, i: number) => (
+                              <span key={i} className="px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs">
+                                {activity}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {extracurricular.undergraduate && extracurricular.undergraduate.length > 0 && (
+                        <div>
+                          <div className="text-sm text-slate-400 mb-1 mt-3">Undergraduate Activities</div>
+                          <div className="flex flex-wrap gap-2">
+                            {extracurricular.undergraduate.map((activity: string, i: number) => (
+                              <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs">
+                                {activity}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : Array.isArray(extracurricular) ? (
+                    /* Handle simple array case */
+                    <div>
+                      <div className="text-sm text-slate-400 mb-1">All Activities</div>
+                      <div className="flex flex-wrap gap-2">
+                        {extracurricular.map((activity: string, i: number) => (
+                          <span key={i} className="px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs">
+                            {activity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-400">Invalid extracurricular format</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">Extracurricular information not available</div>
+              )}
+
+              {/* Certifications Section */}
+              {certifications ? (
+                <div className="mt-4 space-y-3">
+                  <h5 className="text-sm font-semibold text-white">Certifications</h5>
+                  <div className="space-y-2">
+                    {/* Check if certifications is structured object */}
+                    {typeof certifications === 'object' && !Array.isArray(certifications) ? (
+                      <>
+                        {certifications.local && certifications.local.length > 0 && (
+                          <div>
+                            <div className="text-xs text-slate-400">Local (Nepal)</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {certifications.local.map((cert: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs">
+                                  {cert}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {certifications.international && certifications.international.length > 0 && (
+                          <div>
+                            <div className="text-xs text-slate-400">International</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {certifications.international.map((cert: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-red-500/20 text-red-300 rounded-full text-xs">
+                                  {cert}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : Array.isArray(certifications) ? (
+                      /* Handle simple array case */
+                      <div>
+                        <div className="text-xs text-slate-400">All Certifications</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {certifications.map((cert: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs">
+                              {cert}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">Invalid certifications format</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 text-sm text-slate-400">Certifications information not available</div>
+              )}
+            </div>
+
+            {/* Career Path & Job Titles */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">📈 Career Progression</h4>
+
+              {jobTitles ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    {/* First check if jobTitles is the structured object type */}
+                    {typeof jobTitles === 'object' && !Array.isArray(jobTitles) ? (
+                      <>
+                        {/* Entry Level */}
+                        {jobTitles.entry && jobTitles.entry.length > 0 && (
+                          <div>
+                            <div className="text-sm text-slate-400">Entry Level Positions</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {jobTitles.entry.map((title: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                                  {title}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mid Career */}
+                        {jobTitles.mid && jobTitles.mid.length > 0 && (
+                          <div>
+                            <div className="text-sm text-slate-400 mt-3">Mid Career Positions</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {jobTitles.mid.map((title: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs">
+                                  {title}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Senior Positions */}
+                        {jobTitles.senior && jobTitles.senior.length > 0 && (
+                          <div>
+                            <div className="text-sm text-slate-400 mt-3">Senior Positions</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {jobTitles.senior.map((title: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs">
+                                  {title}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Add entrepreneurial if needed */}
+                        {jobTitles.entrepreneurial && jobTitles.entrepreneurial.length > 0 && (
+                          <div>
+                            <div className="text-sm text-slate-400 mt-3">Entrepreneurial Paths</div>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {jobTitles.entrepreneurial.map((title: string, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs">
+                                  {title}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : Array.isArray(jobTitles) ? (
+                      /* Handle simple array case */
+                      <div>
+                        <div className="text-sm text-slate-400">All Positions</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {jobTitles.map((title: string, i: number) => (
+                            <span key={i} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                              {title}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">Invalid job titles format</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-400">Career progression information not available</div>
+              )}
+            </div>
+
+            {/* Financial Planning */}
+            <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+              <h4 className="text-lg font-semibold text-white mb-3">💰 Financial Planning</h4>
+
+              <div className="space-y-4">
+                {financialAdvice.educationCostAdvice && (
+                  <div>
+                    <div className="text-sm text-slate-400">Education Cost Advice</div>
+                    <div className="text-sm text-white mt-1 whitespace-pre-line">{financialAdvice.educationCostAdvice}</div>
+                  </div>
+                )}
+
+                {financialAdvice.budgetingTips && (
+                  <div>
+                    <div className="text-sm text-slate-400">Budgeting Tips</div>
+                    <div className="mt-1 space-y-1">
+                      {Array.isArray(financialAdvice.budgetingTips) ? (
+                        financialAdvice.budgetingTips.map((tip: string, i: number) => (
+                          <div key={i} className="text-sm text-white flex items-start gap-2">
+                            <span className="text-teal-400 mt-1">•</span>
+                            <span>{tip}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-white whitespace-pre-line">{financialAdvice.budgetingTips}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {financialAdvice.savingTips && (
+                  <div>
+                    <div className="text-sm text-slate-400">Saving Tips</div>
+                    <div className="mt-1 space-y-1">
+                      {Array.isArray(financialAdvice.savingTips) ? (
+                        financialAdvice.savingTips.map((tip: string, i: number) => (
+                          <div key={i} className="text-sm text-white flex items-start gap-2">
+                            <span className="text-cyan-400 mt-1">•</span>
+                            <span>{tip}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-white whitespace-pre-line">{financialAdvice.savingTips}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {financialAdvice.scholarshipSuggestions && (
+                  <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                    <div className="text-sm font-semibold text-green-300">Scholarship Suggestions</div>
+                    <div className="text-sm text-white mt-1">
+                      {typeof financialAdvice.scholarshipSuggestions === 'string'
+                        ? financialAdvice.scholarshipSuggestions
+                        : 'Various scholarship opportunities available'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Risk Assessment & Success Metrics */}
+            {(riskAssessment || successMetrics) && (
+              <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+                <h4 className="text-lg font-semibold text-white mb-3">🎯 Risk & Success Planning</h4>
+
+                <div className="space-y-4">
+                  {riskAssessment && (
+                    <div>
+                      <div className="text-sm text-slate-400">Risk Assessment</div>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Market Saturation:</span>
+                          <span className="text-sm font-semibold text-white">{riskAssessment.marketSaturation}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Barriers to Entry:</span>
+                          <span className="text-sm font-semibold text-white">{riskAssessment.barriersToEntry}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Adaptation Required:</span>
+                          <span className="text-sm font-semibold text-white">{riskAssessment.adaptationRequired}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {successMetrics && (
+                    <div>
+                      <div className="text-sm text-slate-400">Success Metrics</div>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Short Term (1-2 years):</span>
+                          <span className="text-sm font-semibold text-teal-400">{successMetrics.shortTerm}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Medium Term (3-5 years):</span>
+                          <span className="text-sm font-semibold text-cyan-400">{successMetrics.mediumTerm}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-slate-300">Long Term (10+ years):</span>
+                          <span className="text-sm font-semibold text-purple-400">{successMetrics.longTerm}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Nepal Opportunities & Remote Work */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {career.nepalOpportunities && (
+                <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+                  <h5 className="text-sm font-semibold text-white mb-2">🇳🇵 Nepal Opportunities</h5>
+                  <p className="text-sm text-slate-300">{career.nepalOpportunities}</p>
+                </div>
+              )}
+              {career.remoteWork && (
+                <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-teal-500/20">
+                  <h5 className="text-sm font-semibold text-white mb-2">🌐 Remote Work</h5>
+                  <p className="text-sm text-slate-300">{career.remoteWork}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-teal-500/30 bg-slate-800/50 backdrop-blur-sm">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() => {
+                const q = `I need more detailed guidance for ${career.title}. Can you create a personalized 6-month plan?`;
+                const ev = new CustomEvent('prefill-chat', { detail: q });
+                window.dispatchEvent(ev);
+                onClose();
+              }}
+              className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20"
+            >
+              💬 Get Personalized Plan
+            </Button>
+
+            <Button
+              onClick={() => {
+                const q = `Tell me more about scholarships and financial aid for ${career.title}`;
+                const ev = new CustomEvent('prefill-chat', { detail: q });
+                window.dispatchEvent(ev);
+                onClose();
+              }}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg shadow-cyan-500/20"
+            >
+              💰 Scholarship Info
+            </Button>
+
+            <Button
+              onClick={onClose}
+              variant="outline"
+              className="border-teal-500/30 text-teal-400 hover:bg-teal-500/10"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // -------------------- Formatted Message Component --------------------
 function FormattedMessage({ text }: { text: string }) {
-  // Parse the text and format it with proper structure
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: string[] = [];
@@ -108,9 +953,18 @@ function FormattedMessage({ text }: { text: string }) {
       elements.push(
         <ul key={`list-${elements.length}`} className={`ml-4 space-y-1 my-2 ${listType === 'number' ? 'list-decimal' : 'list-disc'} list-inside`}>
           {currentList.map((item, i) => {
-            // Process bold text in list items
-            const processedItem = processBoldText(item);
-            return <li key={i} className="text-sm text-white leading-relaxed">{processedItem}</li>;
+            const parts = item.split(/(\*\*.*?\*\*)/g);
+            return (
+              <li key={i} className="text-sm text-white leading-relaxed">
+                {parts.map((part, j) => {
+                  if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+                    const content = part.slice(2, -2);
+                    return <strong key={j} className="font-semibold text-white">{content}</strong>;
+                  }
+                  return <span key={j}>{part}</span>;
+                })}
+              </li>
+            );
           })}
         </ul>
       );
@@ -119,28 +973,14 @@ function FormattedMessage({ text }: { text: string }) {
     }
   };
 
-  // Helper function to process bold text and remove asterisks
-  const processBoldText = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-        const content = part.slice(2, -2);
-        return <strong key={i} className="font-semibold text-white">{content}</strong>;
-      }
-      return <span key={i}>{part}</span>;
-    });
-  };
-
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
 
-    // Skip empty lines
     if (!trimmed) {
       flushList();
       return;
     }
 
-    // Detect headings (lines that start and end with ** or start with ##)
     if (trimmed.startsWith('##')) {
       flushList();
       const heading = trimmed.replace(/^##\s*/, '').replace(/\*\*/g, '');
@@ -152,7 +992,6 @@ function FormattedMessage({ text }: { text: string }) {
       return;
     }
 
-    // Check if entire line is wrapped in ** (heading style)
     if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.indexOf('**', 2) === trimmed.length - 2) {
       flushList();
       const heading = trimmed.slice(2, -2);
@@ -164,7 +1003,6 @@ function FormattedMessage({ text }: { text: string }) {
       return;
     }
 
-    // Detect bullet points (but not asterisks used for bold)
     if (trimmed.match(/^[-•]\s+/) || (trimmed.startsWith('* ') && !trimmed.match(/\*\*.*\*\*/))) {
       const content = trimmed.replace(/^[-•*]\s+/, '');
       currentList.push(content);
@@ -172,7 +1010,6 @@ function FormattedMessage({ text }: { text: string }) {
       return;
     }
 
-    // Detect numbered lists
     if (trimmed.match(/^\d+\.\s+/)) {
       const content = trimmed.replace(/^\d+\.\s+/, '');
       currentList.push(content);
@@ -180,12 +1017,18 @@ function FormattedMessage({ text }: { text: string }) {
       return;
     }
 
-    // Regular paragraph
     flushList();
     if (trimmed.length > 0) {
+      const parts = trimmed.split(/(\*\*.*?\*\*)/g);
       elements.push(
         <p key={`p-${idx}`} className="text-sm text-white leading-relaxed my-2">
-          {processBoldText(trimmed)}
+          {parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+              const content = part.slice(2, -2);
+              return <strong key={j} className="font-semibold text-white">{content}</strong>;
+            }
+            return <span key={j}>{part}</span>;
+          })}
         </p>
       );
     }
@@ -253,6 +1096,13 @@ export default function UserPage() {
   // Saved careers state
   const [savedCareers, setSavedCareers] = useState<string[]>([]);
 
+  // Career detail modal state
+  const [selectedCareer, setSelectedCareer] = useState<Career | null>(null);
+  const [careerDetailOpen, setCareerDetailOpen] = useState(false);
+
+  // Skill gap analysis state - store calculated levels to prevent re-rendering changes
+  const [skillLevels, setSkillLevels] = useState<{ [key: string]: number }>({});
+
   // Info tooltip state
   const [showFitScoreInfo, setShowFitScoreInfo] = useState(false);
   const fitScoreInfoRef = useRef<HTMLDivElement | null>(null);
@@ -273,6 +1123,37 @@ export default function UserPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showFitScoreInfo]);
+
+  // Calculate and cache skill levels to prevent re-rendering changes
+  useEffect(() => {
+    if (careerSuggestions[0]?.skills && fullQuizData?.skills) {
+      const levels: { [key: string]: number } = {};
+
+      // Extract skills list
+      let skillsList: string[] = [];
+      if (Array.isArray(careerSuggestions[0].skills)) {
+        skillsList = careerSuggestions[0].skills;
+      } else if (typeof careerSuggestions[0].skills === 'object' && careerSuggestions[0].skills.technical) {
+        skillsList = [...(careerSuggestions[0].skills.technical || []), ...(careerSuggestions[0].skills.soft || [])];
+      }
+
+      // Calculate level for each skill (deterministic, not random)
+      skillsList.slice(0, 6).forEach((skill) => {
+        const userSkills = ((fullQuizData?.skills) || []).map((s: string) => s.toLowerCase());
+        const skillExists = userSkills.includes((skill || '').toLowerCase());
+
+        if (skillExists) {
+          // If user has this skill, assign 75% (confident level)
+          levels[skill] = 75;
+        } else {
+          // If user doesn't have this skill, assign 35% (needs development)
+          levels[skill] = 35;
+        }
+      });
+
+      setSkillLevels(levels);
+    }
+  }, [careerSuggestions, fullQuizData?.skills]);
 
   useEffect(() => {
     const init = async () => {
@@ -475,7 +1356,7 @@ export default function UserPage() {
         console.log('Using fallback career data due to API rate limit');
       }
 
-      // ensure we always have arrays and attach hardcoded unis if missing
+      // Ensure we always have arrays and attach hardcoded unis if missing
       const careers: Career[] = (data.careers || []).map((c: Career) => ({
         ...c,
         universities: c.universities && c.universities.length > 0 ? c.universities : getUniversitiesForCareer(c.title),
@@ -514,14 +1395,14 @@ export default function UserPage() {
 
       saveCareerData();
 
-      // compute aggregated gamified score
+      // Compute aggregated gamified score
       const scores = careers.map((c) => computeCareerScore(c, fullQuizData || quizPayload));
       const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
       setTotalScore(avg);
     } catch (err: any) {
       console.error('Failed to fetch career suggestions:', err);
       setErrorText('Unable to generate career suggestions. Try again later.');
-      // if API fails, show a helpful fallback (1 or more items)
+      // If API fails, show a helpful fallback
       setCareerSuggestions([
         {
           title: 'General Career',
@@ -585,7 +1466,7 @@ export default function UserPage() {
         body: JSON.stringify(payload),
       });
 
-      // if non-200, try to parse JSON error safely
+      // If non-200, try to parse JSON error safely
       if (!res.ok) {
         let errorMessage = "I couldn't reach the AI service. Try again later.";
 
@@ -628,67 +1509,38 @@ export default function UserPage() {
     setLoadingScholarships(true);
 
     // Use curated fallback data immediately for reliability
-    // This ensures users always get high-quality, accurate information
     setTimeout(() => {
-      setScholarshipData(getFallbackScholarshipData());
-      setLoadingScholarships(false);
-    }, 800); // Small delay for better UX (shows loading state)
-
-    // Optional: Uncomment below to enable AI-enhanced recommendations
-    // Note: AI responses may vary in format and require robust parsing
-    /*
-    try {
-      const careerContext = careerSuggestions.length > 0
-        ? `The student is interested in: ${careerSuggestions.slice(0, 3).map(c => c.title).join(', ')}.`
-        : '';
-
-      const payload = {
-        message: `You are a scholarship advisor. Generate EXACTLY 10 universities with 70%+ scholarships. ${careerContext}
-
-CRITICAL: Return ONLY a valid JSON array with this EXACT structure (no extra text):
-[
-  {
-    "name": "University Name",
-    "location": "Country",
-    "scholarship": "70-100%",
-    "types": ["Merit-based", "Need-based"],
-    "description": "Brief description of financial aid",
-    "requirements": "Application requirements",
-    "programs": "Relevant programs"
-  }
-]
-
-Include:
-- 2 Nepal universities (Kathmandu University, Tribhuvan University)
-- 4 US universities (Harvard, MIT, Stanford, Yale - all offer 100% need-based aid)
-- 2 UK/Canada universities (Oxford, Toronto)
-- 2 Asia/Australia universities (NUS, Melbourne)
-
-Return ONLY the JSON array, nothing else.`,
-        context: {
-          profile: fullQuizData,
-          careerSuggestions: careerSuggestions.slice(0, 3),
+      setScholarshipData([
+        {
+          name: 'Kathmandu University',
+          location: 'Nepal',
+          scholarship: '75-100%',
+          types: ['Merit-based', 'Need-based'],
+          description: 'Offers generous scholarships for high-achieving students and those with financial need.',
+          requirements: 'Strong academic record, entrance exam',
+          programs: 'Engineering, Medicine, Business, Arts'
         },
-      };
-
-      const res = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const reply = json.reply || '';
-        const universities = parseScholarshipData(reply);
-        if (universities.length >= 8) {
-          setScholarshipData(universities);
+        {
+          name: 'Harvard University',
+          location: 'USA',
+          scholarship: '100%',
+          types: ['Need-based'],
+          description: 'Full financial aid for students from families earning less than $85,000/year.',
+          requirements: 'Exceptional academics, SAT/ACT, essays',
+          programs: 'All undergraduate programs'
+        },
+        {
+          name: 'University of Toronto',
+          location: 'Canada',
+          scholarship: '70-100%',
+          types: ['Merit-based', 'International scholarships'],
+          description: 'Lester B. Pearson Scholarships cover full tuition and living expenses.',
+          requirements: 'Academic excellence, leadership',
+          programs: 'All programs'
         }
-      }
-    } catch (err) {
-      console.error('Scholarship fetch error', err);
-    }
-    */
+      ]);
+      setLoadingScholarships(false);
+    }, 800);
   };
 
   // Parse AI response to extract scholarship data
@@ -897,6 +1749,7 @@ Return ONLY the JSON array, nothing else.`,
 
       if (error) {
         console.error('Error removing saved career:', error);
+        console.error('Error details:', error.message, error.details);
         return;
       }
 
@@ -909,30 +1762,160 @@ Return ONLY the JSON array, nothing else.`,
       // Save - add to database with ALL career information
       const career = careerSuggestions.find(c => c.title === careerTitle);
 
-      const { error } = await supabase
+      if (!career) {
+        console.error('Career not found:', careerTitle);
+        return;
+      }
+
+      // Log the career object to debug
+      console.log('Saving career data:', {
+        title: careerTitle,
+        career: career,
+        hasExtracurricular: 'extracurricular' in career,
+        hasFinancialAdvice: 'financialAdvice' in career,
+        allKeys: Object.keys(career)
+      });
+
+      // Extract salary range from the salary object
+      const salaryRange = (() => {
+        if (!career?.salary) return '';
+        if (typeof career.salary === 'string') return career.salary;
+        if (typeof career.salary === 'object') {
+          if (career.salary.entryLevel && career.salary.midCareer) {
+            return `${career.salary.entryLevel} → ${career.salary.midCareer}`;
+          }
+          if (career.salary.entryLevel) return career.salary.entryLevel;
+          if (career.salary.midCareer) return career.salary.midCareer;
+        }
+        return '';
+      })();
+
+      // Extract growth potential from the growth object
+      const growthPotential = (() => {
+        if (!career?.growth) return '';
+        if (typeof career.growth === 'string') return career.growth;
+        if (typeof career.growth === 'object') {
+          return career.growth.nepalMarket || career.growth.globalTrend || '';
+        }
+        return '';
+      })();
+
+      // Extract skills properly (handle both array and object formats)
+      const skillsForSave = (() => {
+        if (Array.isArray(career?.skills)) return career.skills;
+        if (typeof career?.skills === 'object' && career.skills) {
+          return [
+            ...(Array.isArray(career.skills.technical) ? career.skills.technical : []),
+            ...(Array.isArray(career.skills.soft) ? career.skills.soft : [])
+          ];
+        }
+        return [];
+      })();
+
+      // Extract education as array of strings
+      const educationForSave = (() => {
+        if (Array.isArray(career?.education)) return career.education;
+        if (typeof career?.education === 'object' && career.education) {
+          return Array.isArray(career.education.degrees) ? career.education.degrees : [];
+        }
+        if (typeof career?.education === 'string') return [career.education];
+        return [];
+      })();
+
+      // Extract certifications as array of strings
+      const certificationsForSave = (() => {
+        if (Array.isArray(career?.certifications)) return career.certifications;
+        if (typeof career?.certifications === 'object' && career.certifications) {
+          const certs = [];
+          if (Array.isArray(career.certifications.local)) certs.push(...career.certifications.local);
+          if (Array.isArray(career.certifications.online)) certs.push(...career.certifications.online);
+          if (Array.isArray(career.certifications.international)) certs.push(...career.certifications.international);
+          return certs;
+        }
+        return [];
+      })();
+
+      // Extract job titles as array of strings
+      const jobTitlesForSave = (() => {
+        if (Array.isArray(career?.jobTitles)) return career.jobTitles;
+        if (typeof career?.jobTitles === 'object' && career.jobTitles) {
+          return Object.values(career.jobTitles).filter(v => typeof v === 'string');
+        }
+        return [];
+      })();
+
+      // Extract universities as array of strings
+      const universitiesForSave = (() => {
+        if (Array.isArray(career?.universities)) {
+          return career.universities.map(u => typeof u === 'string' ? u : u.name || '');
+        }
+        return [];
+      })();
+
+      // Extract extracurriculars as array of strings
+      const extracurricularsForSave = (() => {
+        if (Array.isArray(career?.extracurricular)) return career.extracurricular;
+        if (typeof career?.extracurricular === 'object' && career.extracurricular) {
+          const activities = [];
+          if (Array.isArray(career.extracurricular.schoolLevel)) activities.push(...career.extracurricular.schoolLevel);
+          if (Array.isArray(career.extracurricular.undergraduate)) activities.push(...career.extracurricular.undergraduate);
+          return activities;
+        }
+        return [];
+      })();
+
+      // Extract financial guidance as array of strings
+      const financialGuidanceForSave = (() => {
+        if (Array.isArray(career?.financialAdvice)) return career.financialAdvice;
+        if (typeof career?.financialAdvice === 'object' && career.financialAdvice) {
+          const guidance = [];
+          if (Array.isArray(career.financialAdvice.scholarships)) guidance.push(...career.financialAdvice.scholarships);
+          if (Array.isArray(career.financialAdvice.loans)) guidance.push(...career.financialAdvice.loans);
+          if (Array.isArray(career.financialAdvice.budgeting)) guidance.push(...career.financialAdvice.budgeting);
+          return guidance;
+        }
+        return [];
+      })();
+
+      // Prepare the insert data
+      const insertData = {
+        user_id: userId,
+        career_title: careerTitle,
+        career_description: career?.description || '',
+        education: typeof career?.education === 'string' ? career.education : '',
+        field_of_study: career?.fieldOfStudy || '',
+        top_skills: skillsForSave,
+        certifications: certificationsForSave,
+        possible_job_titles: jobTitlesForSave,
+        universities: universitiesForSave,
+        extracurriculars: extracurricularsForSave,
+        financial_guidance: financialGuidanceForSave,
+        career_path: career?.careerPath || '',
+        salary_range: salaryRange,
+        growth_potential: growthPotential,
+        fit_score: career?.fitScore || 0
+      };
+
+      // Log the insert data for debugging
+      console.log('Insert data prepared:', JSON.stringify(insertData, null, 2));
+
+      const { data, error } = await supabase
         .from('saved_careers')
-        .insert({
-          user_id: userId,
-          career_title: careerTitle,
-          career_description: career?.description || '',
-          education: career?.education || '',
-          field_of_study: career?.fieldOfStudy || '',
-          top_skills: career?.topSkills || [],
-          certifications: career?.certifications || [],
-          possible_job_titles: career?.possibleJobTitles || [],
-          universities: career?.universities || [],
-          extracurriculars: career?.extracurriculars || [],
-          financial_guidance: career?.financialGuidance || [],
-          career_path: career?.careerPath || '',
-          salary_range: career?.salaryRange || '',
-          growth_potential: career?.growthPotential || '',
-          fit_score: career?.fitScore || 0
-        });
+        .insert(insertData)
+        .select(); // Add .select() to see what returns
 
       if (error) {
         console.error('Error saving career:', error);
+        console.error('Full error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         return;
       }
+
+      console.log('Successfully saved career:', data);
 
       setSavedCareers((prev) => {
         const updated = [...prev, careerTitle];
@@ -988,7 +1971,7 @@ Return ONLY the JSON array, nothing else.`,
 
               {loadingMentors ? (
                 <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 bo2 border-indigo-200 border-t-indigo-600"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-200 border-t-indigo-600"></div>
                 </div>
               ) : mentorsData?.mentors && mentorsData.mentors.length > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -1057,8 +2040,6 @@ Return ONLY the JSON array, nothing else.`,
                 <p className="text-xs text-slate-400 text-center py-4">No mentors online</p>
               )}
             </div>
-
-
           </div>
         </aside>
 
@@ -1143,8 +2124,6 @@ Return ONLY the JSON array, nothing else.`,
                       </div>
                     )}
                   </div>
-
-
                 </div>
               </div>
 
@@ -1163,14 +2142,14 @@ Return ONLY the JSON array, nothing else.`,
                           </div>
                           <div className="text-right ml-3">
                             <div className="text-xs text-slate-400">Growth</div>
-                            <div className="font-bold text-sm text-teal-400">{c.growth || 'N/A'}</div>
+                            <div className="font-bold text-sm text-teal-400">{getGrowthDisplay(c.growth)}</div>
                             <div className="text-xs text-slate-400 mt-2">Salary</div>
-                            <div className="font-semibold text-sm text-cyan-400">{c.salary || '—'}</div>
+                            <div className="font-semibold text-sm text-cyan-400">{getSalaryDisplay(c.salary)}</div>
                           </div>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {(c.skills || []).slice(0, 5).map((s, si) => (
+                          {((c.skills && Array.isArray(c.skills) ? c.skills : [])).slice(0, 5).map((s, si) => (
                             <span key={si} className="px-2 py-1 bg-teal-500/20 text-teal-300 rounded-full text-xs border border-teal-500/30">{s}</span>
                           ))}
                         </div>
@@ -1228,21 +2207,31 @@ Return ONLY the JSON array, nothing else.`,
 
                     {careerSuggestions[0] ? (
                       <div>
-                        {((careerSuggestions[0].skills || []).slice(0, 6)).map((s, i) => {
-                          const has = (fullQuizData?.skills || []).map((x) => x.toLowerCase()).includes((s || '').toLowerCase());
-                          const level = has ? Math.floor(60 + Math.random() * 40) : Math.floor(10 + Math.random() * 40);
-                          return (
-                            <div key={i} className="mb-4">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium text-white">{s}</div>
-                                <div className="text-sm text-teal-400 font-semibold">{level}%</div>
+                        {(() => {
+                          let skillsList: string[] = [];
+                          if (careerSuggestions[0]?.skills) {
+                            if (Array.isArray(careerSuggestions[0].skills)) {
+                              skillsList = careerSuggestions[0].skills;
+                            } else if (typeof careerSuggestions[0].skills === 'object' && careerSuggestions[0].skills.technical) {
+                              skillsList = [...(careerSuggestions[0].skills.technical || []), ...(careerSuggestions[0].skills.soft || [])];
+                            }
+                          }
+                          return skillsList.slice(0, 6).map((s: string, i: number) => {
+                            // Use cached skill level from state instead of Math.random()
+                            const level = skillLevels[s] ?? 50;
+                            return (
+                              <div key={i} className="mb-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm font-medium text-white">{s}</div>
+                                  <div className="text-sm text-teal-400 font-semibold">{level}%</div>
+                                </div>
+                                <div className="w-full bg-slate-700/50 rounded-full h-3 mt-2 overflow-hidden border border-teal-500/20">
+                                  <div className="h-3 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500" style={{ width: `${level}%` }} />
+                                </div>
                               </div>
-                              <div className="w-full bg-slate-700/50 rounded-full h-3 mt-2 overflow-hidden border border-teal-500/20">
-                                <div className="h-3 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500" style={{ width: `${level}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          });
+                        })()}
 
                         <div className="mt-6 p-4 bg-slate-700/30 rounded-lg border border-teal-500/20">
                           <h4 className="text-sm font-semibold text-white mb-2">💡 Actionable Steps</h4>
@@ -1276,7 +2265,7 @@ Return ONLY the JSON array, nothing else.`,
 
                             <div className="mt-3 text-sm text-slate-300">
                               <ul className="list-disc list-inside space-y-1">
-                                <li>Recommended focus: {careerSuggestions[idx]?.skills?.slice(0, 3).join(', ') || 'Study core subjects'}</li>
+                                <li>Recommended focus: {(careerSuggestions[idx]?.skills && Array.isArray(careerSuggestions[idx]?.skills) ? careerSuggestions[idx]?.skills?.slice(0, 3).join(', ') : 'Study core subjects') || 'Study core subjects'}</li>
                                 <li>Mini-goal: Complete one project or certification</li>
                                 <li>Resources: Free online courses, local workshops</li>
                               </ul>
@@ -1295,7 +2284,7 @@ Return ONLY the JSON array, nothing else.`,
                     {careerSuggestions.length > 0 ? (
                       <div>
                         {careerSuggestions.slice(0, 4).map((c, i) => {
-                          const range = c.salary || '—';
+                          const range = getSalaryDisplay(c.salary);
                           return (
                             <div key={i} className="mb-4">
                               <div className="flex items-center justify-between">
@@ -1303,7 +2292,7 @@ Return ONLY the JSON array, nothing else.`,
                                 <div className="text-sm text-teal-400 font-semibold">{range}</div>
                               </div>
                               <div className="w-full bg-slate-700/50 rounded-full h-3 mt-2 overflow-hidden border border-teal-500/20">
-                                <div className={`h-3 rounded-full ${c.growth === 'Very High' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : c.growth === 'High' ? 'bg-gradient-to-r from-teal-400 to-cyan-500' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`} style={{ width: `${40 + (i * 12)}%` }} />
+                                <div className={`h-3 rounded-full ${getGrowthDisplay(c.growth).includes('Very High') ? 'bg-gradient-to-r from-green-400 to-emerald-500' : getGrowthDisplay(c.growth).includes('High') ? 'bg-gradient-to-r from-teal-400 to-cyan-500' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`} style={{ width: `${40 + (i * 12)}%` }} />
                               </div>
                             </div>
                           );
@@ -1324,7 +2313,7 @@ Return ONLY the JSON array, nothing else.`,
                       <>
                         <div className="mb-3 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">
                           <div className="text-sm font-medium text-white">Typical Education</div>
-                          <div className="text-sm text-slate-300 mt-1">{careerSuggestions[0].education || '—'}</div>
+                          <div className="text-sm text-slate-300 mt-1">{getEducationDisplay(careerSuggestions[0].education)}</div>
                         </div>
 
                         <div className="mb-3 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">
@@ -1334,7 +2323,7 @@ Return ONLY the JSON array, nothing else.`,
 
                         <div>
                           <div className="text-sm font-medium">ROI Indicator</div>
-                          <div className="mt-2 text-sm text-white-700">{careerSuggestions[0].growth === 'Very High' ? 'High potential ROI' : careerSuggestions[0].growth === 'High' ? 'Good ROI' : 'Moderate ROI'}</div>
+                          <div className="mt-2 text-sm text-white-700">{getGrowthDisplay(careerSuggestions[0].growth).includes('Very High') ? 'High potential ROI' : getGrowthDisplay(careerSuggestions[0].growth).includes('High') ? 'Good ROI' : 'Moderate ROI'}</div>
                         </div>
 
                         <div className="mt-4">
@@ -1378,57 +2367,159 @@ Return ONLY the JSON array, nothing else.`,
               {/* Career deep-dive accordions */}
               <div className="mt-8 space-y-6">
                 {careerSuggestions.map((career, idx) => (
-                  <div key={idx} className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
+                  <div key={idx} className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl hover:border-teal-500/30 transition-all">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm text-teal-400 font-semibold bg-teal-500/20 px-2 py-1 rounded-full">#{idx + 1}</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${computeCareerScore(career, fullQuizData) >= 80 ? 'bg-green-500/20 text-green-400' : computeCareerScore(career, fullQuizData) >= 60 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                            Fit: {computeCareerScore(career, fullQuizData)}%
+                          </span>
+                          {typeof career.growth === 'object' && career.growth?.nepalMarket && (
+                            <span className={`text-xs px-2 py-1 rounded-full ${career.growth.nepalMarket === 'High' || career.growth.nepalMarket === 'Very High' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                              {career.growth.nepalMarket} Growth
+                            </span>
+                          )}
+                        </div>
+
                         <h4 className="text-xl font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">{career.title}</h4>
-                        <p className="text-sm text-slate-300 mt-1">{career.description}</p>
+                        <p className="text-sm text-slate-300 mt-1 line-clamp-2">{career.description}</p>
 
+                        {/* Enhanced Information Grid */}
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <div className="text-sm text-slate-400">Education</div>
-                            <div className="font-semibold text-white">{career.education || '—'}</div>
-                            <div className="text-sm mt-2 text-slate-300">{formatList(career.degrees, 4)}</div>
+                          {/* Salary Information */}
+                          <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-3 border border-teal-500/30">
+                            <div className="text-xs text-slate-400">Salary Range</div>
+                            <div className="font-semibold text-teal-400 mt-1">
+                              {getSalaryDisplay(career.salary)}
+                            </div>
+                            {typeof career.salary === 'object' && career.salary?.globalComparison && (
+                              <div className="text-xs text-slate-400 mt-1">Global: {career.salary.globalComparison}</div>
+                            )}
                           </div>
 
-                          <div>
-                            <div className="text-sm text-slate-400">Top Skills</div>
-                            <div className="mt-2 flex flex-wrap gap-2">{(career.skills || []).map((s, i) => <span key={i} className="px-2 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs border border-teal-500/30">{s}</span>)}</div>
+                          {/* Education Information */}
+                          <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-3 border border-teal-500/30">
+                            <div className="text-xs text-slate-400">Education Path</div>
+                            <div className="font-semibold text-white mt-1 truncate">
+                              {getEducationDisplay(career.education)}
+                            </div>
+                            {typeof career.education === 'object' && career.education?.timeline && (
+                              <div className="text-xs text-slate-400 mt-1">Timeline: {career.education.timeline}</div>
+                            )}
                           </div>
 
-                          <div>
-                            <div className="text-sm text-slate-400">Extracurriculars</div>
-                            <div className="mt-2 text-sm text-slate-300">{formatList(career.extracurricular, 5)}</div>
+                          {/* Extracurricular Preview */}
+                          <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-3 border border-teal-500/30">
+                            <div className="text-xs text-slate-400">Extracurricular</div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {(() => {
+                                let activities: string[] = [];
+                                if (career.extracurricular) {
+                                  if (Array.isArray(career.extracurricular)) {
+                                    activities = career.extracurricular.slice(0, 3);
+                                  } else if (typeof career.extracurricular === 'object') {
+                                    const schoolLevel = career.extracurricular?.schoolLevel || [];
+                                    const undergraduate = career.extracurricular?.undergraduate || [];
+                                    activities = [...schoolLevel, ...undergraduate].slice(0, 3);
+                                  }
+                                }
+                                return activities.map((activity, i) => (
+                                  <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs">
+                                    {activity}
+                                  </span>
+                                ));
+                              })()}
+                            </div>
                           </div>
+                        </div>
+
+                        {/* Additional Information */}
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Risk Assessment */}
+                          {career.riskAssessment && (
+                            <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-3 border border-teal-500/30">
+                              <div className="text-xs text-slate-400">Market Risk</div>
+                              <div className="text-sm font-semibold text-white mt-1">
+                                {career.riskAssessment.marketSaturation} • {career.riskAssessment.barriersToEntry}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Financial Tips */}
+                          {career.financialAdvice?.educationCostAdvice && (
+                            <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-3 border border-teal-500/30">
+                              <div className="text-xs text-slate-400">Financial Tip</div>
+                              <div className="text-sm text-teal-300 mt-1 truncate">
+                                {typeof career.financialAdvice.educationCostAdvice === 'string'
+                                  ? career.financialAdvice.educationCostAdvice.substring(0, 60) + '...'
+                                  : 'Plan finances early'}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <div className="w-56 text-right">
                         <div className="text-sm text-slate-400">Fit Score</div>
                         <div className="text-3xl font-bold text-teal-400">{computeCareerScore(career, fullQuizData)}</div>
-                        <div className="mt-4">
-                          <div className="text-sm text-slate-400">Estimated Salary</div>
-                          <div className="font-semibold text-cyan-400">{career.salary || '—'}</div>
-                        </div>
+
+                        {typeof career.growth === 'object' && (
+                          <div className="mt-4">
+                            <div className="text-sm text-slate-400">Automation Risk</div>
+                            <div className={`text-sm font-semibold ${career.growth.automationRisk === 'Low' ? 'text-green-400' : career.growth.automationRisk === 'Medium' ? 'text-yellow-400' : 'text-red-400'}`}>
+                              {career.growth.automationRisk || 'Medium'}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
-                        <div className="text-sm text-slate-400">Certifications</div>
-                        <div className="mt-2 text-sm text-slate-300">{formatList(career.certifications, 5)}</div>
+                        <div className="text-sm text-slate-400">Key Skills</div>
+                        <div className="mt-2 text-sm text-slate-300">
+                          {(() => {
+                            let skillsDisplay = '—';
+
+                            if (career.skills) {
+                              if (typeof career.skills === 'object' && !Array.isArray(career.skills)) {
+                                // Handle object format {technical, soft, developmentPlan}
+                                const technical = Array.isArray(career.skills?.technical) ? career.skills.technical : [];
+                                const soft = Array.isArray(career.skills?.soft) ? career.skills.soft : [];
+                                const allSkills = [...technical, ...soft];
+
+                                if (allSkills.length > 0) {
+                                  skillsDisplay = allSkills.slice(0, 3).join(', ');
+                                }
+                              } else if (Array.isArray(career.skills)) {
+                                // Handle array format
+                                if (career.skills.length > 0) {
+                                  skillsDisplay = career.skills.slice(0, 3).filter(Boolean).join(', ') || '—';
+                                }
+                              }
+                            }
+
+                            return skillsDisplay;
+                          })()}
+                        </div>
                       </div>
 
                       <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
-                        <div className="text-sm text-slate-400">Possible Job Titles</div>
-                        <div className="mt-2 text-sm text-slate-300">{formatList(career.jobTitles, 5)}</div>
+                        <div className="text-sm text-slate-400">Certifications</div>
+                        <div className="mt-2 text-sm text-slate-300">{formatList(career.certifications, 3)}</div>
+                      </div>
+
+                      <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
+                        <div className="text-sm text-slate-400">Job Titles</div>
+                        <div className="mt-2 text-sm text-slate-300">{formatList(career.jobTitles, 3)}</div>
                       </div>
 
                       <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-slate-400">Universities</div>
-                            <div className="mt-2 text-sm text-slate-300">{formatList(career.universities, 5)}</div>
+                            <div className="mt-2 text-sm text-slate-300">{formatUniversities(career.universities, 3)}</div>
                           </div>
                           <div>
                             <button onClick={() => { setSelectedCareerForUnis(career); setUniModalOpen(true); }} className="margin-1 text-sm bg-teal-600 hover:bg-teal-700 p-1 rounded-lg w-14 text-white cursor-pointer transition-all shadow-lg shadow-teal-500/20">View</button>
@@ -1438,17 +2529,33 @@ Return ONLY the JSON array, nothing else.`,
 
                       <div className="bg-slate-700/50 backdrop-blur-sm rounded-lg p-4 border border-teal-500/30">
                         <div className="text-sm text-slate-400">Financial Guidance</div>
-                        <div className="mt-2 text-sm text-slate-300">{career.financialAdvice?.educationCostAdvice || 'See quick tips on the right.'}</div>
+                        <div className="mt-2 text-sm text-slate-300">
+                          {career.financialAdvice?.educationCostAdvice && typeof career.financialAdvice.educationCostAdvice === 'string'
+                            ? career.financialAdvice.educationCostAdvice.substring(0, 80) + '...'
+                            : 'See detailed financial advice'}
+                        </div>
                       </div>
                     </div>
 
                     <div className="mt-6 flex gap-3">
+                      <Button
+                        onClick={() => {
+                          setSelectedCareer(career);
+                          setCareerDetailOpen(true);
+                        }}
+                        className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20"
+                      >
+                        📊 View All Details
+                      </Button>
+
                       <Button onClick={() => {
                         const q = `Create a 6-month learning plan for ${career.title} with weekly milestones.`;
                         const ev = new CustomEvent('prefill-chat', { detail: q });
                         window.dispatchEvent(ev);
                         setChatOpen(true);
-                      }} className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20">Ask MentorAssist for a learning plan</Button>
+                      }} className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg shadow-cyan-500/20">
+                        📅 Get Learning Plan
+                      </Button>
 
                       <Button
                         onClick={() => toggleSaveCareer(career.title)}
@@ -1601,6 +2708,18 @@ Return ONLY the JSON array, nothing else.`,
         </div>
       )}
 
+      {/* Career Detail Modal */}
+      {selectedCareer && (
+        <CareerDetailModal
+          career={selectedCareer}
+          open={careerDetailOpen}
+          onClose={() => {
+            setCareerDetailOpen(false);
+            setSelectedCareer(null);
+          }}
+        />
+      )}
+
       {/* Universities Modal */}
       <Modal
         open={uniModalOpen}
@@ -1611,37 +2730,46 @@ Return ONLY the JSON array, nothing else.`,
           <>
             <p className="text-sm text-slate-300 mb-3">Suggested universities (by affordability / fit). Click any to ask MentorAssist for more details.</p>
             <div className="space-y-3">
-              {(selectedCareerForUnis.universities || getUniversitiesForCareer(selectedCareerForUnis.title)).map((u, i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm hover:border-teal-500/50 transition-all">
-                  <div>
-                    <div className="font-medium text-white">{u}</div>
-                    <div className="text-xs text-teal-400 mt-1">{i === 0 ? '⭐ Top suggestion' : '✓ Recommended'}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        const q = `Tell me about ${u}: tuition range, admission overview, scholarship opportunities, and why it's a good fit for ${selectedCareerForUnis.title}.`;
-                        const ev = new CustomEvent('prefill-chat', { detail: q });
-                        window.dispatchEvent(ev);
-                        setUniModalOpen(false);
-                        setChatOpen(true);
-                      }}
-                      className="px-3 py-1 rounded-md border border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-sm transition-all"
-                    >
-                      Ask
-                    </button>
+              {(selectedCareerForUnis.universities || getUniversitiesForCareer(selectedCareerForUnis.title)).map((u, i) => {
+                // Handle both string and object formats
+                const uniName = typeof u === 'string' ? u : (u?.name || 'University');
+                const uniLocation = typeof u === 'object' ? u?.location : '';
+                const uniProgram = typeof u === 'object' ? u?.program : '';
 
-                    <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(u)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1 rounded-md border border-teal-500/30 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-sm transition-all shadow-lg shadow-teal-500/20"
-                    >
-                      Visit
-                    </a>
+                return (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm hover:border-teal-500/50 transition-all">
+                    <div>
+                      <div className="font-medium text-white">{uniName}</div>
+                      {uniLocation && <div className="text-xs text-slate-400 mt-0.5">📍 {uniLocation}</div>}
+                      {uniProgram && <div className="text-xs text-teal-400 mt-1">Program: {uniProgram}</div>}
+                      {!uniLocation && <div className="text-xs text-teal-400 mt-1">{i === 0 ? '⭐ Top suggestion' : '✓ Recommended'}</div>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const q = `Tell me about ${uniName}: tuition range, admission overview, scholarship opportunities, and why it's a good fit for ${selectedCareerForUnis.title}.`;
+                          const ev = new CustomEvent('prefill-chat', { detail: q });
+                          window.dispatchEvent(ev);
+                          setUniModalOpen(false);
+                          setChatOpen(true);
+                        }}
+                        className="px-3 py-1 rounded-md border border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-sm transition-all"
+                      >
+                        Ask
+                      </button>
+
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(uniName)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1 rounded-md border border-teal-500/30 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-sm transition-all shadow-lg shadow-teal-500/20"
+                      >
+                        Visit
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : (
@@ -1783,6 +2911,30 @@ Return ONLY the JSON array, nothing else.`,
 
         .animation-delay-4000 {
           animation-delay: 4s;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        .animate-slide-in-right {
+          animation: slideInRight 0.3s ease-out;
         }
       `}</style>
     </div>
