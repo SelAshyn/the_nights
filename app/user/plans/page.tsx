@@ -62,6 +62,8 @@ function StudySchedules() {
   const [editTimeHour, setEditTimeHour] = useState('');
   const [editTimeMinute, setEditTimeMinute] = useState('');
   const [editTimePeriod, setEditTimePeriod] = useState<'AM' | 'PM'>('AM');
+  const [generatingSchedule, setGeneratingSchedule] = useState(false);
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
 
   const activityColors: { [key: string]: string } = {
     'Study Session': 'bg-teal-500/80',
@@ -267,6 +269,72 @@ function StudySchedules() {
     return scheduleSlots.find(s => s.id === `${day}-${time}`);
   };
 
+  const generateAISchedule = async () => {
+    try {
+      setGeneratingSchedule(true);
+      setScheduleMessage(null);
+
+      // Get session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setScheduleMessage('Error: Not authenticated');
+        return;
+      }
+
+      // Get quiz data from localStorage
+      const userKey = (key: string) => `user-${session.user.id}-${key}`;
+      const quizDataRaw = localStorage.getItem(userKey('fullQuizData'));
+      if (!quizDataRaw) {
+        setScheduleMessage('Error: Please complete the quiz first to generate a personalized schedule');
+        return;
+      }
+
+      const quizData = JSON.parse(quizDataRaw);
+      console.log('Generating AI schedule with quiz data:', quizData);
+
+      // Call the AI schedule generation API
+      const response = await fetch('/api/schedule/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          quiz: quizData,
+          currentSchedule: scheduleSlots
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        setScheduleMessage(`Error: ${error.error || 'Failed to generate schedule'}`);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success && result.schedule) {
+        // Replace current schedule with AI-generated one
+        setScheduleSlots(result.schedule);
+        await saveSchedule(result.schedule);
+        setScheduleMessage(
+          result.source === 'ai'
+            ? '✅ AI schedule generated successfully! Review and customize as needed.'
+            : '✅ Schedule generated with defaults. Customize to your preferences.'
+        );
+
+        // Clear message after 5 seconds
+        setTimeout(() => setScheduleMessage(null), 5000);
+      } else {
+        setScheduleMessage('Error: Failed to generate schedule');
+      }
+    } catch (error: any) {
+      console.error('Error generating AI schedule:', error);
+      setScheduleMessage(`Error: ${error.message || 'Unknown error'}`);
+    } finally {
+      setGeneratingSchedule(false);
+    }
+  };
+
   useEffect(() => {
     fetchSchedule();
   }, []);
@@ -275,7 +343,15 @@ function StudySchedules() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-semibold text-white">📅 Weekly Schedule</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={generateAISchedule}
+            disabled={generatingSchedule}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all"
+            title="Generate an optimized schedule based on your quiz answers"
+          >
+            {generatingSchedule ? '🔄 Generating...' : '✨ AI Schedule'}
+          </button>
           <button
             onClick={() => {
               setShowAddTime(!showAddTime);
@@ -296,6 +372,17 @@ function StudySchedules() {
           </button>
         </div>
       </div>
+
+      {/* Schedule generation message */}
+      {scheduleMessage && (
+        <div className={`p-3 rounded-lg border ${
+          scheduleMessage.includes('✅')
+            ? 'bg-green-500/10 border-green-500/30 text-green-300'
+            : 'bg-red-500/10 border-red-500/30 text-red-300'
+        }`}>
+          {scheduleMessage}
+        </div>
+      )}
 
       {/* Add Custom Time Slot */}
       {showAddTime && (
