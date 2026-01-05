@@ -281,15 +281,60 @@ function StudySchedules() {
         return;
       }
 
-      // Get quiz data from localStorage
+      // Try multiple ways to get quiz data
       const userKey = (key: string) => `user-${session.user.id}-${key}`;
-      const quizDataRaw = localStorage.getItem(userKey('fullQuizData'));
+
+      let quizData = null;
+      let quizDataRaw = localStorage.getItem(userKey('fullQuizData'));
+
+      // Try with user prefix
       if (!quizDataRaw) {
+        // Try without user prefix
+        quizDataRaw = localStorage.getItem('fullQuizData');
+      }
+
+      // Try from database
+      if (!quizDataRaw) {
+        try {
+          const { data: quizResult } = await supabase
+            .from('user_quiz_results')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (quizResult) {
+            // Convert database format to quiz format
+            quizData = {
+              grade: quizResult.grade,
+              careerInterest: quizResult.career_interest,
+              academicInterests: quizResult.academic_interests || [],
+              academicStrengths: quizResult.academic_strengths || [],
+              preferredEnvironment: quizResult.preferred_environment,
+              taskPreference: quizResult.task_preference,
+              skills: quizResult.skills || [],
+              techConfidence: quizResult.tech_confidence,
+              workLife: quizResult.work_life,
+              careerMotivation: quizResult.career_motivation,
+              studyGoal: quizResult.study_goal
+            };
+          }
+        } catch (dbError) {
+          console.log('No quiz data in database');
+        }
+      } else {
+        try {
+          quizData = JSON.parse(quizDataRaw);
+        } catch (parseError) {
+          console.error('Error parsing quiz data:', parseError);
+        }
+      }
+
+      if (!quizData) {
         setScheduleMessage('Error: Please complete the quiz first to generate a personalized schedule');
+        console.log('Quiz data not found. Checked localStorage (with/without prefix) and database.');
         return;
       }
 
-      const quizData = JSON.parse(quizDataRaw);
       console.log('Generating AI schedule with quiz data:', quizData);
 
       // Call the AI schedule generation API

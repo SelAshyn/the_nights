@@ -1158,7 +1158,12 @@ export default function UserPage() {
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.warn('Session error (possibly offline):', sessionError.message);
+          setLoading(false);
+          return;
+        }
         if (!session) {
           router.push('/auth');
           return;
@@ -1293,10 +1298,16 @@ export default function UserPage() {
     const fetchMentors = async () => {
       try {
         const response = await fetch('/api/mentors/active');
+        if (!response.ok) {
+          console.error(`Failed to fetch mentors: HTTP ${response.status}`, response.statusText);
+          setMentorsData({ total: 0, active: 0, mentors: [] });
+          return;
+        }
         const data = await response.json();
         setMentorsData(data);
       } catch (error) {
-        console.error('Failed to fetch mentors:', error);
+        console.error('Failed to fetch mentors:', error instanceof Error ? error.message : error);
+        setMentorsData({ total: 0, active: 0, mentors: [] });
       } finally {
         setLoadingMentors(false);
       }
@@ -1346,7 +1357,8 @@ export default function UserPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || 'Failed to fetch careers');
+        console.error(`Career suggestions API error: HTTP ${res.status}`, text);
+        throw new Error(text || `Failed to fetch careers (HTTP ${res.status})`);
       }
 
       const data = await res.json();
@@ -1482,8 +1494,9 @@ export default function UserPage() {
             errorMessage = `⚠️ **Error**: ${errorData.error}`;
           }
         } catch (e) {
-          // If parsing fails, use default message
+          // If parsing fails, log and use default message
           console.error('Error parsing error response:', e);
+          console.error(`AI Chat API error: HTTP ${res.status}`);
         }
 
         setChatMessages((m) => [...m, { from: 'ai', text: errorMessage }]);
@@ -1496,7 +1509,7 @@ export default function UserPage() {
       setChatMessages((m) => [...m, { from: 'ai', text: reply }]);
       setTimeout(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' }), 100);
     } catch (err) {
-      console.error('Chat error', err);
+      console.error('Chat error:', err instanceof Error ? err.message : err);
       setChatMessages((m) => [...m, { from: 'ai', text: "⚠️ **Connection Error**\n\nI couldn't reach the AI service. Please check your internet connection and try again.\n\nIf the problem persists, try:\n- Refreshing the page\n- Connecting with active mentors\n- Browsing career suggestions below" }]);
     } finally {
       setChatLoading(false);

@@ -4,6 +4,7 @@ import { Inter, Poppins, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import {Navbar} from "@/components/Navbar"
 import LightRays from "@/components/LightRays";
+import { NetworkErrorBoundary } from "@/components/NetworkErrorBoundary";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -54,7 +55,9 @@ export default function RootLayout({
             pulsating={true}
           />
         </div>
-        {children}
+        <NetworkErrorBoundary>
+          {children}
+        </NetworkErrorBoundary>
       </body>
     </html>
   );

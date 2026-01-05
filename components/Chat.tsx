@@ -60,10 +60,18 @@ export function Chat() {
   }, [messages]);
 
   const initChat = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      setUserId(session.user.id);
-      loadConversations();
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.warn('Session error (this is expected if offline):', error.message);
+        return;
+      }
+      if (session?.user) {
+        setUserId(session.user.id);
+        loadConversations();
+      }
+    } catch (err) {
+      console.warn('Chat init error (network issue):', err);
     }
   };
 

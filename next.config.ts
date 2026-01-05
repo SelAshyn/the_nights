@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  experimental: {
-    serverComponentsExternalPackages: ['groq-sdk', 'node-fetch', 'formdata-node', 'agentkeepalive'],
-  },
+  serverExternalPackages: ['groq-sdk', 'node-fetch', 'formdata-node', 'agentkeepalive'],
 };
 
 export default nextConfig;
