@@ -1158,18 +1158,35 @@ export default function UserPage() {
   useEffect(() => {
     const init = async () => {
       try {
+        // Wait a bit for Supabase to initialize and check for existing session
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
         if (sessionError) {
           console.warn('Session error (possibly offline):', sessionError.message);
           setLoading(false);
           return;
         }
+
         if (!session) {
+          // Wait a bit more to ensure session isn't still loading
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+
+          if (!retrySession) {
+            router.push('/auth');
+            return;
+          }
+        }
+
+        const currentSession = session || await supabase.auth.getSession().then(({ data: { session } }) => session);
+        if (!currentSession) {
           router.push('/auth');
           return;
         }
 
-        const userId = session.user.id;
+        const userId = currentSession.user.id;
         const userKey = (key: string) => `${key}_${userId}`;
 
         // Try to load quiz data from database first
@@ -1286,8 +1303,10 @@ export default function UserPage() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.push('/auth');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        router.push('/auth');
+      }
     });
 
     return () => subscription.unsubscribe();
