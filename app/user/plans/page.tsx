@@ -79,7 +79,7 @@ function StudySchedules() {
   const fetchSchedule = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user?.id) {
         console.log('No session found');
         return;
       }
@@ -108,7 +108,7 @@ function StudySchedules() {
   const saveSchedule = async (slots: ScheduleSlot[]) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user?.id) {
         console.error('Cannot save: No session');
         return;
       }
@@ -276,7 +276,7 @@ function StudySchedules() {
 
       // Get session for authentication
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.user?.id) {
         setScheduleMessage('Error: Not authenticated');
         return;
       }
@@ -642,7 +642,7 @@ function Milestones() {
   const fetchMilestones = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session?.user?.id) return;
 
       const { data, error } = await supabase
         .from('milestones')
@@ -875,7 +875,7 @@ export default function MyPlansPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return router.push('/auth');
+      if (!session?.user?.id) return router.push('/auth');
       setLoading(false);
     };
 

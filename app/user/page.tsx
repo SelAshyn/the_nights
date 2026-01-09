@@ -1203,7 +1203,7 @@ export default function UserPage() {
         try {
           const response = await fetch('/api/quiz/get', {
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${currentSession.access_token}`,
             },
           });
 
@@ -1411,7 +1411,7 @@ export default function UserPage() {
       const saveCareerData = async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
+          if (session?.access_token) {
             const userId = session.user.id;
             const userKey = (key: string) => `${key}_${userId}`;
 
@@ -1776,7 +1776,7 @@ export default function UserPage() {
   // Save/Unsave career functions
   const toggleSaveCareer = async (careerTitle: string) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session?.user?.id) return;
 
     const userId = session.user.id;
     const userKey = (key: string) => `${key}_${userId}`;
@@ -2051,7 +2051,7 @@ export default function UserPage() {
                         onClick={async () => {
                           try {
                             const { data: { session } } = await supabase.auth.getSession();
-                            if (!session) return;
+                            if (!session?.user?.id) return;
 
                             // Create or get conversation
                             const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
@@ -2122,7 +2122,7 @@ export default function UserPage() {
                     onClick={async () => {
                       // Clear all quiz data so user can retake it
                       const { data: { session } } = await supabase.auth.getSession();
-                      if (session) {
+                      if (session?.user?.id) {
                         const userId = session.user.id;
                         const userKey = (key: string) => `${key}_${userId}`;
 
