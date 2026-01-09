@@ -1893,9 +1893,11 @@ export default function UserPage() {
         if (Array.isArray(career?.financialAdvice)) return career.financialAdvice;
         if (typeof career?.financialAdvice === 'object' && career.financialAdvice) {
           const guidance = [];
-          if (Array.isArray(career.financialAdvice.scholarships)) guidance.push(...career.financialAdvice.scholarships);
-          if (Array.isArray(career.financialAdvice.loans)) guidance.push(...career.financialAdvice.loans);
-          if (Array.isArray(career.financialAdvice.budgeting)) guidance.push(...career.financialAdvice.budgeting);
+          if (Array.isArray(career.financialAdvice.budgetingTips)) guidance.push(...career.financialAdvice.budgetingTips);
+          if (Array.isArray(career.financialAdvice.savingTips)) guidance.push(...career.financialAdvice.savingTips);
+          if (typeof career.financialAdvice.educationCostAdvice === 'string') guidance.push(career.financialAdvice.educationCostAdvice);
+          if (typeof career.financialAdvice.scholarshipSuggestions === 'string') guidance.push(career.financialAdvice.scholarshipSuggestions);
+          if (typeof career.financialAdvice.earningWhileStudying === 'string') guidance.push(career.financialAdvice.earningWhileStudying);
           return guidance;
         }
         return [];

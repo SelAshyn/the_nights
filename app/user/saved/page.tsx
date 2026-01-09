@@ -59,8 +59,7 @@ export default function SavedPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      console.log('Fetching saved careers for user:', session.user.id);
-
+      // Fetch saved careers for user
       const { data: saved, error: savedError } = await supabase
         .from('saved_careers')
         .select('*')
