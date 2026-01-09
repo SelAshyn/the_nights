@@ -1829,9 +1829,20 @@ export default function UserPage() {
       const educationForSave = (() => {
         if (Array.isArray(career?.education)) return career.education;
         if (typeof career?.education === 'object' && career.education) {
-          return Array.isArray(career.education.degrees) ? career.education.degrees : [];
+          // Education object has pathway, timeline, etc. but no degrees property
+          return [career.education.pathway || 'Education required'];
         }
         if (typeof career?.education === 'string') return [career.education];
+        // Check if there's a separate degrees property
+        if (career?.degrees) {
+          if (Array.isArray(career.degrees)) return career.degrees;
+          if (typeof career.degrees === 'object') {
+            return [
+              ...(Array.isArray(career.degrees.essential) ? career.degrees.essential : []),
+              ...(Array.isArray(career.degrees.recommended) ? career.degrees.recommended : [])
+            ];
+          }
+        }
         return [];
       })();
 
