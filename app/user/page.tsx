@@ -1156,12 +1156,16 @@ export default function UserPage() {
   }, [careerSuggestions, fullQuizData?.skills]);
 
   useEffect(() => {
+    let mounted = true;
+
     const init = async () => {
       try {
         // Wait a bit for Supabase to initialize and check for existing session
         await new Promise(resolve => setTimeout(resolve, 100));
 
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (!mounted) return;
 
         if (sessionError) {
           console.warn('Session error (possibly offline):', sessionError.message);
@@ -1174,6 +1178,8 @@ export default function UserPage() {
           await new Promise(resolve => setTimeout(resolve, 500));
           const { data: { session: retrySession } } = await supabase.auth.getSession();
 
+          if (!mounted) return;
+
           if (!retrySession) {
             router.push('/auth');
             return;
@@ -1181,6 +1187,9 @@ export default function UserPage() {
         }
 
         const currentSession = session || await supabase.auth.getSession().then(({ data: { session } }) => session);
+
+        if (!mounted) return;
+
         if (!currentSession) {
           router.push('/auth');
           return;
@@ -1309,7 +1318,10 @@ export default function UserPage() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   // -------------------- Fetch active mentors --------------------
