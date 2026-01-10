@@ -58,9 +58,11 @@ export default function MenteeAuthPage() {
 
   // Check email availability when email changes (for sign-up only)
   const checkEmailAvailability = async (email: string) => {
-    if (!email || !isSignUp) return;
+    if (!email || !isSignUp) return true;
 
+    console.log('📧 Checking email availability for:', email);
     setEmailCheckLoading(true);
+
     try {
       const response = await fetch('/api/auth/check-email', {
         method: 'POST',
@@ -73,7 +75,17 @@ export default function MenteeAuthPage() {
         }),
       });
 
+      console.log('📧 Email check response status:', response.status);
+
+      if (!response.ok) {
+        console.error('📧 Email check failed with status:', response.status);
+        const errorText = await response.text();
+        console.error('📧 Error response:', errorText);
+        return true; // Allow to proceed if check fails
+      }
+
       const result = await response.json();
+      console.log('📧 Email check result:', result);
 
       if (!result.available) {
         setError(result.message);
@@ -86,7 +98,7 @@ export default function MenteeAuthPage() {
       setError(''); // Clear any previous errors
       return true;
     } catch (error) {
-      console.error('Email check failed:', error);
+      console.error('📧 Email check failed:', error);
       return true; // Allow to proceed if check fails
     } finally {
       setEmailCheckLoading(false);
@@ -143,6 +155,8 @@ export default function MenteeAuthPage() {
     setLoading(true);
     setError('');
 
+    console.log('🔐 Starting authentication process...', { isSignUp, email });
+
     try {
       if (isSignUp) {
         // Client-side validation
@@ -154,6 +168,7 @@ export default function MenteeAuthPage() {
         }
 
         // Check email availability for mentee registration
+        console.log('📧 Checking email availability...');
         const emailAvailable = await checkEmailAvailability(email);
         if (!emailAvailable) {
           setLoading(false);
@@ -161,6 +176,7 @@ export default function MenteeAuthPage() {
         }
 
         // 🔐 Supabase sign-up
+        console.log('📝 Creating new account...');
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -174,6 +190,7 @@ export default function MenteeAuthPage() {
         });
 
         if (signUpError) {
+          console.error('❌ Sign-up error:', signUpError);
           // Handle specific error for email already registered
           if (signUpError.message.includes('already registered')) {
             setError('This email is already registered. Please sign in instead or use a different email.');
@@ -184,11 +201,13 @@ export default function MenteeAuthPage() {
           return;
         }
 
+        console.log('✅ Account created successfully!');
         alert('Account created successfully! Please sign in.');
         setIsSignUp(false);
 
       } else {
         // 🔐 Sign in - also check if user has correct role
+        console.log('🔑 Attempting to sign in...');
         const { data, error: signInError } =
           await supabase.auth.signInWithPassword({
             email,
@@ -196,29 +215,42 @@ export default function MenteeAuthPage() {
           });
 
         if (signInError) {
+          console.error('❌ Sign-in error:', signInError);
           if (signInError.message.includes('Invalid login credentials')) {
             setError('Invalid email or password. Make sure you\'re signing in to the correct portal (Student vs Mentor).');
           } else {
-            throw signInError;
+            setError(`Sign-in failed: ${signInError.message}`);
           }
           setLoading(false);
           return;
         }
 
         if (!data.session) {
-          throw new Error('No session created after signing in');
+          console.error('❌ No session created after signing in');
+          setError('Authentication failed: No session created');
+          setLoading(false);
+          return;
         }
+
+        console.log('✅ Sign-in successful!', { userId: data.session.user.id });
 
         // Check if user has the correct role
         const userRole = data.session.user.user_metadata?.role;
+        console.log('👤 User role:', userRole);
+
         if (userRole && userRole !== 'mentee') {
+          console.log('❌ Wrong role, signing out...');
           await supabase.auth.signOut();
           setError(`This email is registered as a ${userRole}. Please use the ${userRole} portal to sign in.`);
           setLoading(false);
           return;
         }
 
+        // Store role in localStorage for quick access
+        localStorage.setItem('userRole', 'mentee');
+
         // 🎯 Check if quiz is already completed
+        console.log('📋 Checking quiz completion status...');
         const { data: quizData } = await supabase
           .from('user_quiz_results')
           .select('id')
@@ -227,14 +259,17 @@ export default function MenteeAuthPage() {
 
         // 🔀 Redirect based on quiz status
         if (quizData) {
+          console.log('✅ Quiz completed, redirecting to dashboard...');
           router.push('/user');
         } else {
+          console.log('📝 Quiz not completed, redirecting to welcome...');
           router.push('/welcome');
         }
 
         router.refresh();
       }
     } catch (error: any) {
+      console.error('💥 Authentication error:', error);
       setError(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -358,6 +393,27 @@ export default function MenteeAuthPage() {
               >
                 {isSignUp ? "Create Account" : "Sign in"}
               </Button>
+            </div>
+
+            {/* Debug button - remove in production */}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  console.log('🔍 Testing Supabase connection...');
+                  try {
+                    const { data, error } = await supabase.auth.getSession();
+                    console.log('✅ Supabase connection test:', { data, error });
+                    alert('Supabase connection test - check console for details');
+                  } catch (err) {
+                    console.error('❌ Supabase connection failed:', err);
+                    alert('Supabase connection failed - check console');
+                  }
+                }}
+                className="w-full text-xs text-slate-400 hover:text-slate-300 py-1"
+              >
+                🔍 Test Connection (Debug)
+              </button>
             </div>
           </form>
 
