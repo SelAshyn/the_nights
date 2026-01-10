@@ -16,20 +16,24 @@ export default function AuthPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (session) {
+        if (session?.user) {
           // User is already logged in, redirect to appropriate dashboard
-          const userRole = localStorage.getItem('userRole');
+          const userRole = session.user.user_metadata?.role;
 
           if (userRole === 'mentor') {
             router.push('/mentor/dashboard');
-          } else {
+            return;
+          } else if (userRole === 'mentee') {
             router.push('/user');
+            return;
+          } else {
+            // No clear role, sign out and show auth options
+            await supabase.auth.signOut();
           }
-        } else {
-          setLoading(false);
         }
       } catch (error) {
         console.error('Auth check error:', error);
+      } finally {
         setLoading(false);
       }
     };

@@ -44,7 +44,7 @@ export const Navbar = () => {
         <nav className="flex items-center justify-between p-4 lg:px-8 max-w-7xl mx-auto" aria-label="Global">
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" width="40px" height="40px" className="lg:w-[50px] lg:h-[50px]"/>
+              <img src="/logo.svg" width="100px" height="40px" className="lg:w-[64px] lg:h-[50px]"/>
               <span className={`${poppins.className} text-xl lg:text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent tracking-wide`}>UNITE</span>
             </Link>
           </div>
