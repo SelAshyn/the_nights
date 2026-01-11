@@ -1,20 +1,30 @@
 import { supabase } from './supabase';
 
-export type UserRole = 'mentor' | 'mentee';
+/**
+ * Get current user session
+ */
+export async function getCurrentSession() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
 
-export interface AuthUser {
-  id: string;
-  email: string;
-  role: UserRole;
-  metadata: any;
+    if (error) {
+      console.error('Session error:', error);
+      return null;
+    }
+
+    return session;
+  } catch (error) {
+    console.error('Error getting session:', error);
+    return null;
+  }
 }
 
 /**
  * Get the current user's role from their session
  */
-export async function getCurrentUserRole(): Promise<UserRole | null> {
+export async function getCurrentUserRole() {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getCurrentSession();
 
     if (!session?.user) {
       return null;
@@ -30,7 +40,7 @@ export async function getCurrentUserRole(): Promise<UserRole | null> {
 /**
  * Check if the current user has the required role
  */
-export async function hasRole(requiredRole: UserRole): Promise<boolean> {
+export async function hasRole(requiredRole: 'mentor' | 'mentee') {
   const currentRole = await getCurrentUserRole();
   return currentRole === requiredRole;
 }
@@ -38,60 +48,37 @@ export async function hasRole(requiredRole: UserRole): Promise<boolean> {
 /**
  * Redirect user to appropriate dashboard based on their role
  */
-export function getRedirectPath(role: UserRole | null): string {
+export function getRedirectPath(role: string | null) {
   switch (role) {
     case 'mentor':
       return '/mentor/dashboard';
     case 'mentee':
       return '/user';
     default:
-      return '/auth';
+      return '/auth/mentee';
   }
 }
 
 /**
- * Check if an email is available for a specific role
+ * Sign out and clear local storage
  */
-export async function checkEmailAvailability(email: string, role: UserRole): Promise<{
-  available: boolean;
-  message: string;
-  existing?: boolean;
-}> {
-  try {
-    const response = await fetch('/api/auth/check-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: email.toLowerCase(),
-        role
-      }),
-    });
-
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('Email check failed:', error);
-    return {
-      available: true,
-      message: 'Unable to verify email availability. Proceeding...'
-    };
-  }
-}
-
-/**
- * Sign out and redirect to appropriate auth page
- */
-export async function signOutAndRedirect(redirectRole?: UserRole) {
+export async function signOut() {
   try {
     await supabase.auth.signOut();
-
-    if (typeof window !== 'undefined') {
-      const redirectPath = redirectRole ? `/auth/${redirectRole}` : '/auth';
-      window.location.href = redirectPath;
-    }
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    return true;
   } catch (error) {
     console.error('Sign out error:', error);
+    return false;
   }
 }
+
+/**
+ * Check if user is authenticated
+ */
+export async function isAuthenticated() {
+  const session = await getCurrentSession();
+  return !!session;
+}
+

@@ -76,7 +76,7 @@ export default function MenteeProgressPage() {
           setScheduleSlots(schedule.slots);
 
           // Extract unique time slots
-          const uniqueTimes = Array.from(new Set(schedule.slots.map((s: ScheduleSlot) => s.time)));
+          const uniqueTimes = Array.from(new Set(schedule.slots.map((s: ScheduleSlot) => s.time))) as string[];
           setTimeSlots(uniqueTimes.sort());
         }
 

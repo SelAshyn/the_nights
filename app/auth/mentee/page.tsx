@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
@@ -14,96 +14,7 @@ export default function MenteeAuthPage() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkExistingAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          const userRole = session.user.user_metadata?.role;
-
-          if (userRole === 'mentee') {
-            // Already logged in as mentee, redirect to dashboard
-            router.push('/user');
-            return;
-          } else if (userRole === 'mentor') {
-            // Logged in as mentor, redirect to mentor dashboard
-            router.push('/mentor/dashboard');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
-    checkExistingAuth();
-  }, [router]);
-
-  // Show loading while checking existing auth
-  if (initialLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-teal-900">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-500/20 border-t-teal-500" />
-      </div>
-    );
-  }
-
-  // Check email availability when email changes (for sign-up only)
-  const checkEmailAvailability = async (email: string) => {
-    if (!email || !isSignUp) return true;
-
-    console.log('📧 Checking email availability for:', email);
-    setEmailCheckLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase(),
-          role: 'mentee'
-        }),
-      });
-
-      console.log('📧 Email check response status:', response.status);
-
-      if (!response.ok) {
-        console.error('📧 Email check failed with status:', response.status);
-        const errorText = await response.text();
-        console.error('📧 Error response:', errorText);
-        return true; // Allow to proceed if check fails
-      }
-
-      const result = await response.json();
-      console.log('📧 Email check result:', result);
-
-      if (!result.available) {
-        setError(result.message);
-        return false;
-      } else if (result.existing) {
-        setError('This email is already registered as a mentee. Please sign in instead.');
-        return false;
-      }
-
-      setError(''); // Clear any previous errors
-      return true;
-    } catch (error) {
-      console.error('📧 Email check failed:', error);
-      return true; // Allow to proceed if check fails
-    } finally {
-      setEmailCheckLoading(false);
-    }
-  };
 
   const validateEmailClient = (email: string): string | null => {
     // Basic format check
@@ -155,11 +66,9 @@ export default function MenteeAuthPage() {
     setLoading(true);
     setError('');
 
-    console.log('🔐 Starting authentication process...', { isSignUp, email });
-
     try {
       if (isSignUp) {
-        // Client-side validation
+        // Client-side validation only
         const clientError = validateEmailClient(email);
         if (clientError) {
           setError(clientError);
@@ -167,16 +76,7 @@ export default function MenteeAuthPage() {
           return;
         }
 
-        // Check email availability for mentee registration
-        console.log('📧 Checking email availability...');
-        const emailAvailable = await checkEmailAvailability(email);
-        if (!emailAvailable) {
-          setLoading(false);
-          return;
-        }
-
         // 🔐 Supabase sign-up
-        console.log('📝 Creating new account...');
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -189,68 +89,26 @@ export default function MenteeAuthPage() {
           }
         });
 
-        if (signUpError) {
-          console.error('❌ Sign-up error:', signUpError);
-          // Handle specific error for email already registered
-          if (signUpError.message.includes('already registered')) {
-            setError('This email is already registered. Please sign in instead or use a different email.');
-          } else {
-            throw signUpError;
-          }
-          setLoading(false);
-          return;
-        }
+        if (signUpError) throw signUpError;
 
-        console.log('✅ Account created successfully!');
         alert('Account created successfully! Please sign in.');
         setIsSignUp(false);
 
       } else {
-        // 🔐 Sign in - also check if user has correct role
-        console.log('🔑 Attempting to sign in...');
+        // 🔐 Sign in
         const { data, error: signInError } =
           await supabase.auth.signInWithPassword({
             email,
             password
           });
 
-        if (signInError) {
-          console.error('❌ Sign-in error:', signInError);
-          if (signInError.message.includes('Invalid login credentials')) {
-            setError('Invalid email or password. Make sure you\'re signing in to the correct portal (Student vs Mentor).');
-          } else {
-            setError(`Sign-in failed: ${signInError.message}`);
-          }
-          setLoading(false);
-          return;
-        }
+        if (signInError) throw signInError;
 
         if (!data.session) {
-          console.error('❌ No session created after signing in');
-          setError('Authentication failed: No session created');
-          setLoading(false);
-          return;
+          throw new Error('No session created after signing in');
         }
-
-        console.log('✅ Sign-in successful!', { userId: data.session.user.id });
-
-        // Check if user has the correct role
-        const userRole = data.session.user.user_metadata?.role;
-        console.log('👤 User role:', userRole);
-
-        if (userRole && userRole !== 'mentee') {
-          console.log('❌ Wrong role, signing out...');
-          await supabase.auth.signOut();
-          setError(`This email is registered as a ${userRole}. Please use the ${userRole} portal to sign in.`);
-          setLoading(false);
-          return;
-        }
-
-        // Store role in localStorage for quick access
-        localStorage.setItem('userRole', 'mentee');
 
         // 🎯 Check if quiz is already completed
-        console.log('📋 Checking quiz completion status...');
         const { data: quizData } = await supabase
           .from('user_quiz_results')
           .select('id')
@@ -259,17 +117,14 @@ export default function MenteeAuthPage() {
 
         // 🔀 Redirect based on quiz status
         if (quizData) {
-          console.log('✅ Quiz completed, redirecting to dashboard...');
           router.push('/user');
         } else {
-          console.log('📝 Quiz not completed, redirecting to welcome...');
           router.push('/welcome');
         }
 
         router.refresh();
       }
     } catch (error: any) {
-      console.error('💥 Authentication error:', error);
       setError(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
@@ -332,7 +187,7 @@ export default function MenteeAuthPage() {
               <label htmlFor="email" className="block text-sm font-medium text-slate-300 font-body">
                 Email address
               </label>
-              <div className="mt-1 relative">
+              <div className="mt-1">
                 <input
                   id="email"
                   name="email"
@@ -340,31 +195,10 @@ export default function MenteeAuthPage() {
                   autoComplete="email"
                   required
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    // Clear error when user starts typing
-                    if (error && error.includes('email')) {
-                      setError('');
-                    }
-                  }}
-                  onBlur={() => {
-                    if (isSignUp && email) {
-                      checkEmailAvailability(email);
-                    }
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-teal-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
-                {emailCheckLoading && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-teal-500/20 border-t-teal-500"></div>
-                  </div>
-                )}
               </div>
-              {isSignUp && (
-                <p className="mt-1 text-xs text-slate-400">
-                  We'll check if this email is available for student registration
-                </p>
-              )}
             </div>
 
             <div>
@@ -393,27 +227,6 @@ export default function MenteeAuthPage() {
               >
                 {isSignUp ? "Create Account" : "Sign in"}
               </Button>
-            </div>
-
-            {/* Debug button - remove in production */}
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  console.log('🔍 Testing Supabase connection...');
-                  try {
-                    const { data, error } = await supabase.auth.getSession();
-                    console.log('✅ Supabase connection test:', { data, error });
-                    alert('Supabase connection test - check console for details');
-                  } catch (err) {
-                    console.error('❌ Supabase connection failed:', err);
-                    alert('Supabase connection failed - check console');
-                  }
-                }}
-                className="w-full text-xs text-slate-400 hover:text-slate-300 py-1"
-              >
-                🔍 Test Connection (Debug)
-              </button>
             </div>
           </form>
 

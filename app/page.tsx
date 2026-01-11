@@ -19,18 +19,14 @@ export default function Home() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (session?.user) {
+        if (session) {
           // User is logged in, check their role and redirect
-          const userRole = session.user.user_metadata?.role;
+          const userRole = localStorage.getItem('userRole');
 
           if (userRole === 'mentor') {
             router.push('/mentor/dashboard');
-          } else if (userRole === 'mentee') {
-            router.push('/user');
           } else {
-            // No role or unclear role - sign out and stay on landing
-            await supabase.auth.signOut();
-            setLoading(false);
+            router.push('/user');
           }
         } else {
           setLoading(false);

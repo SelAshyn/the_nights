@@ -57,7 +57,7 @@ export default function SavedPage() {
   const fetchSavedCareers = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return;
+      if (!session) return;
 
       // Fetch saved careers for user
       const { data: saved, error: savedError } = await supabase
@@ -85,7 +85,7 @@ export default function SavedPage() {
   const removeSaved = async (careerId: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return;
+      if (!session) return;
 
       const { error } = await supabase
         .from('saved_careers')

@@ -5,6 +5,7 @@ import "./globals.css";
 import {Navbar} from "@/components/Navbar"
 import LightRays from "@/components/LightRays";
 import { NetworkErrorBoundary } from "@/components/NetworkErrorBoundary";
+import { AuthSync } from "@/components/AuthSync";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -55,6 +56,7 @@ export default function RootLayout({
             pulsating={true}
           />
         </div>
+        <AuthSync />
         <NetworkErrorBoundary>
           {children}
         </NetworkErrorBoundary>

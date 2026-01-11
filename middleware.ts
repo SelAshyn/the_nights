@@ -3,8 +3,24 @@ import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   // Get auth token from cookies
-  const token = req.cookies.get('sb-access-token')?.value ||
-                req.cookies.get('supabase-auth-token')?.value;
+  let token = null;
+
+  // Try to get the token from cookies in order of priority
+  const sbAuthToken = req.cookies.get('sb-auth-token')?.value;
+  const sbAccessToken = req.cookies.get('sb-access-token')?.value;
+
+  if (sbAuthToken) {
+    try {
+      // If sb-auth-token contains JSON, extract the access_token
+      const tokenData = JSON.parse(decodeURIComponent(sbAuthToken));
+      token = tokenData.access_token || sbAuthToken;
+    } catch {
+      // If parsing fails, use the token as-is
+      token = sbAuthToken;
+    }
+  } else if (sbAccessToken) {
+    token = sbAccessToken;
+  }
 
   // Define protected routes and their required roles
   const protectedRoutes = {
@@ -12,6 +28,7 @@ export async function middleware(req: NextRequest) {
     '/user/': 'mentee',
     '/user/plans': 'mentee',
     '/user/saved': 'mentee',
+    '/user/messages': 'mentee',
     '/welcome': 'mentee',
     '/mentor': 'mentor',
     '/mentor/': 'mentor',
@@ -32,12 +49,13 @@ export async function middleware(req: NextRequest) {
     // Route requires authentication
     if (!token) {
       // No token - redirect to appropriate auth page
+      console.log(`[Middleware] No auth token for protected route: ${pathname}, redirecting to /auth/${requiredRole}`);
       const authUrl = new URL(`/auth/${requiredRole}`, req.url);
       return NextResponse.redirect(authUrl);
     }
 
-    // For now, we'll let the client-side handle role validation
-    // since we can't easily decode JWT in middleware without additional dependencies
+    // Token exists, let the client-side handle role validation
+    console.log(`[Middleware] Auth token found for route: ${pathname}`);
   }
 
   // Handle auth pages - if user has token, let client-side handle redirect

@@ -100,7 +100,7 @@ export default function EnhancedQuizPage() {
     // Save to database
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
+      if (session) {
         const response = await fetch('/api/quiz/save', {
           method: 'POST',
           headers: {

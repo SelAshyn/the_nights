@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
@@ -19,84 +19,7 @@ export default function MentorAuthPage() {
   const [credentials, setCredentials] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
   const router = useRouter();
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkExistingAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          const userRole = session.user.user_metadata?.role;
-
-          if (userRole === 'mentor') {
-            // Already logged in as mentor, redirect to dashboard
-            router.push('/mentor/dashboard');
-            return;
-          } else if (userRole === 'mentee') {
-            // Logged in as mentee, redirect to mentee dashboard
-            router.push('/user');
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
-    checkExistingAuth();
-  }, [router]);
-
-  // Show loading while checking existing auth
-  if (initialLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-900 via-slate-900 to-teal-900">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-cyan-500/20 border-t-cyan-500" />
-      </div>
-    );
-  }
-
-  // Check email availability when email changes (for sign-up only)
-  const checkEmailAvailability = async (email: string) => {
-    if (!email || !isSignUp) return;
-
-    setEmailCheckLoading(true);
-    try {
-      const response = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase(),
-          role: 'mentor'
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!result.available) {
-        setError(result.message);
-        return false;
-      } else if (result.existing) {
-        setError('This email is already registered as a mentor. Please sign in instead.');
-        return false;
-      }
-
-      setError(''); // Clear any previous errors
-      return true;
-    } catch (error) {
-      console.error('Email check failed:', error);
-      return true; // Allow to proceed if check fails
-    } finally {
-      setEmailCheckLoading(false);
-    }
-  };
 
   const validateEmailClient = (email: string): string | null => {
     // Basic format check
@@ -150,17 +73,10 @@ export default function MentorAuthPage() {
 
     try {
       if (isSignUp) {
-        // Client-side validation
+        // Client-side validation only
         const clientError = validateEmailClient(email);
         if (clientError) {
           setError(clientError);
-          setLoading(false);
-          return;
-        }
-
-        // Check email availability for mentor registration
-        const emailAvailable = await checkEmailAvailability(email);
-        if (!emailAvailable) {
           setLoading(false);
           return;
         }
@@ -184,16 +100,7 @@ export default function MentorAuthPage() {
           }
         });
 
-        if (signUpError) {
-          // Handle specific error for email already registered
-          if (signUpError.message.includes('already registered')) {
-            setError('This email is already registered. Please sign in instead or use a different email.');
-          } else {
-            throw signUpError;
-          }
-          setLoading(false);
-          return;
-        }
+        if (signUpError) throw signUpError;
 
         alert(
           'Account created! Your mentor application is now under review. Please sign in to check your status.'
@@ -201,34 +108,17 @@ export default function MentorAuthPage() {
         setIsSignUp(false);
 
       } else {
-        // 🔐 Mentor sign-in - also check if user has correct role
+        // 🔐 Mentor sign-in
         const { data, error: signInError } =
           await supabase.auth.signInWithPassword({
             email,
             password
           });
 
-        if (signInError) {
-          if (signInError.message.includes('Invalid login credentials')) {
-            setError('Invalid email or password. Make sure you\'re signing in to the correct portal (Student vs Mentor).');
-          } else {
-            throw signInError;
-          }
-          setLoading(false);
-          return;
-        }
+        if (signInError) throw signInError;
 
         if (!data.session) {
           throw new Error('No session created after sign in');
-        }
-
-        // Check if user has the correct role
-        const userRole = data.session.user.user_metadata?.role;
-        if (userRole && userRole !== 'mentor') {
-          await supabase.auth.signOut();
-          setError(`This email is registered as a ${userRole}. Please use the ${userRole} portal to sign in.`);
-          setLoading(false);
-          return;
         }
 
         // 🔀 Redirect to mentor dashboard
@@ -410,7 +300,7 @@ export default function MentorAuthPage() {
               <label htmlFor="email" className="block text-sm font-medium text-slate-300 font-body">
                 Email address
               </label>
-              <div className="mt-1 relative">
+              <div className="mt-1">
                 <input
                   id="email"
                   name="email"
@@ -418,31 +308,10 @@ export default function MentorAuthPage() {
                   autoComplete="email"
                   required
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    // Clear error when user starts typing
-                    if (error && error.includes('email')) {
-                      setError('');
-                    }
-                  }}
-                  onBlur={() => {
-                    if (isSignUp && email) {
-                      checkEmailAvailability(email);
-                    }
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full appearance-none rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-cyan-500 sm:text-sm transition-colors text-white placeholder-slate-400"
                 />
-                {emailCheckLoading && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-cyan-500/20 border-t-cyan-500"></div>
-                  </div>
-                )}
               </div>
-              {isSignUp && (
-                <p className="mt-1 text-xs text-slate-400">
-                  We'll check if this email is available for mentor registration
-                </p>
-              )}
             </div>
 
             <div>

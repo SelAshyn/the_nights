@@ -1156,46 +1156,20 @@ export default function UserPage() {
   }, [careerSuggestions, fullQuizData?.skills]);
 
   useEffect(() => {
-    let mounted = true;
-
     const init = async () => {
       try {
-        // Wait a bit for Supabase to initialize and check for existing session
-        await new Promise(resolve => setTimeout(resolve, 100));
-
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
         if (sessionError) {
           console.warn('Session error (possibly offline):', sessionError.message);
           setLoading(false);
           return;
         }
-
         if (!session) {
-          // Wait a bit more to ensure session isn't still loading
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-
-          if (!mounted) return;
-
-          if (!retrySession) {
-            router.push('/auth');
-            return;
-          }
-        }
-
-        const currentSession = session || await supabase.auth.getSession().then(({ data: { session } }) => session);
-
-        if (!mounted) return;
-
-        if (!currentSession) {
           router.push('/auth');
           return;
         }
 
-        const userId = currentSession.user.id;
+        const userId = session.user.id;
         const userKey = (key: string) => `${key}_${userId}`;
 
         // Try to load quiz data from database first
@@ -1203,7 +1177,7 @@ export default function UserPage() {
         try {
           const response = await fetch('/api/quiz/get', {
             headers: {
-              'Authorization': `Bearer ${currentSession.access_token}`,
+              'Authorization': `Bearer ${session.access_token}`,
             },
           });
 
@@ -1312,16 +1286,11 @@ export default function UserPage() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
-        router.push('/auth');
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.push('/auth');
     });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [router]);
 
   // -------------------- Fetch active mentors --------------------
@@ -1411,7 +1380,7 @@ export default function UserPage() {
       const saveCareerData = async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.access_token) {
+          if (session) {
             const userId = session.user.id;
             const userKey = (key: string) => `${key}_${userId}`;
 
@@ -1776,7 +1745,7 @@ export default function UserPage() {
   // Save/Unsave career functions
   const toggleSaveCareer = async (careerTitle: string) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id) return;
+    if (!session) return;
 
     const userId = session.user.id;
     const userKey = (key: string) => `${key}_${userId}`;
@@ -2051,7 +2020,7 @@ export default function UserPage() {
                         onClick={async () => {
                           try {
                             const { data: { session } } = await supabase.auth.getSession();
-                            if (!session?.user?.id) return;
+                            if (!session) return;
 
                             // Create or get conversation
                             const { data: convId, error: convError } = await supabase.rpc('get_or_create_conversation', {
@@ -2122,7 +2091,7 @@ export default function UserPage() {
                     onClick={async () => {
                       // Clear all quiz data so user can retake it
                       const { data: { session } } = await supabase.auth.getSession();
-                      if (session?.user?.id) {
+                      if (session) {
                         const userId = session.user.id;
                         const userKey = (key: string) => `${key}_${userId}`;
 
