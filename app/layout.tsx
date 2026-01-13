@@ -25,7 +25,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "MentorLaunch",
+  title: "UNITE | Launch Your Future",
   description: "Connect with expert mentors and accelerate your career",
 };
 

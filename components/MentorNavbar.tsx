@@ -74,7 +74,7 @@ export const MentorNavbar = () => {
       <nav className="flex items-center justify-between p-4 lg:px-8 max-w-7xl mx-auto" aria-label="Global">
         <div className="flex items-center gap-2">
           <Link href="/mentor/dashboard" className="flex items-center gap-2">
-            <img src="/logo.svg" width="35px" height="35px" className="lg:w-[50px] lg:h-[50px]" />
+            <img src="/logo.svg" width="35px" height="35px" className="lg:w-[64px] lg:h-[50px]" />
             <span className={`${poppins.className} text-lg lg:text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent tracking-wide`}>UNITE</span>
           </Link>
         </div>
