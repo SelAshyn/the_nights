@@ -93,7 +93,7 @@ export const Hero = () => {
           <div className="relative">
             <div className="absolute -top-10 -left-10 w-72 h-72 bg-teal-400/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
             <div className="absolute -bottom-10 -right-10 w-72 h-72 bg-cyan-400/20 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-            <img src="/logo.svg" width="400px" height="400px" />
+            <img src="/logo.svg" width="600px" height="600px" />
           </div>
         </div>
       </div>

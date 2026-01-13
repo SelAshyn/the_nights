@@ -27,6 +27,12 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "UNITE | Launch Your Future",
   description: "Connect with expert mentors and accelerate your career",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '2x2', type: 'image/x-icon' },
+      { url: '/favicon.ico', sizes: '6x6', type: 'image/x-icon' }
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -36,6 +42,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32" />
+      </head>
       <body
         className={`${inter.variable} ${poppins.variable} ${spaceGrotesk.variable} antialiased relative text-white`}
       >
