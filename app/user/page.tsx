@@ -2157,8 +2157,45 @@ export default function UserPage() {
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
                 <div className="col-span-3 bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
                   <h3 className="text-lg font-semibold text-white mb-3">Top Recommendations</h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
-                    {careerSuggestions.slice(0, 3).map((c, i) => (
+
+                  {loadingCareers ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500/20 border-t-teal-500 mx-auto mb-4" />
+                        <div className="bg-slate-700/50 backdrop-blur-sm rounded-xl p-6 border border-teal-500/30 max-w-md mx-auto">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xl">🤖</span>
+                            <h4 className="text-lg font-semibold text-white">AI Analyzing Your Profile</h4>
+                          </div>
+                          <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                            Please wait while our AI processes your quiz responses and generates personalized career recommendations tailored to your interests and strengths.
+                          </p>
+                          <div className="flex items-center gap-2 text-teal-400 text-sm">
+                            <div className="animate-pulse">●</div>
+                            <span>Generating recommendations...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : careerSuggestions.length === 0 ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="text-4xl mb-4">🎯</div>
+                        <h4 className="text-lg font-semibold text-white mb-2">Ready to Discover Your Path?</h4>
+                        <p className="text-slate-300 text-sm mb-4">
+                          Complete the career quiz to get personalized recommendations
+                        </p>
+                        <Button
+                          onClick={() => router.push('/welcome')}
+                          className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-500/20"
+                        >
+                          Take Career Quiz
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
+                      {careerSuggestions.slice(0, 3).map((c, i) => (
                       <div key={i} className="flex-shrink-0 w-80 p-4 rounded-xl border border-teal-500/30 bg-slate-700/50 backdrop-blur-sm snap-start hover:border-teal-500/50 transition-all">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
@@ -2194,6 +2231,7 @@ export default function UserPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
@@ -2231,7 +2269,14 @@ export default function UserPage() {
 
                     <p className="text-sm text-slate-300 mb-4">We compare your current skills with the top recommended career to show where to focus.</p>
 
-                    {careerSuggestions[0] ? (
+                    {loadingCareers ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500/20 border-t-teal-500 mx-auto mb-3" />
+                          <p className="text-slate-400 text-sm">Analyzing skill requirements...</p>
+                        </div>
+                      </div>
+                    ) : careerSuggestions[0] ? (
                       <div>
                         {(() => {
                           let skillsList: string[] = [];
@@ -2307,7 +2352,14 @@ export default function UserPage() {
                 <div className="space-y-6">
                   <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/20 shadow-2xl">
                     <h3 className="text-lg font-semibold text-white mb-3">Salary Breakdown</h3>
-                    {careerSuggestions.length > 0 ? (
+                    {loadingCareers ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500/20 border-t-teal-500 mx-auto mb-3" />
+                          <p className="text-slate-400 text-sm">Loading salary data...</p>
+                        </div>
+                      </div>
+                    ) : careerSuggestions.length > 0 ? (
                       <div>
                         {careerSuggestions.slice(0, 4).map((c, i) => {
                           const range = getSalaryDisplay(c.salary);
@@ -2335,7 +2387,14 @@ export default function UserPage() {
                     <h3 className="text-lg font-semibold text-white mb-3">Education Cost & ROI</h3>
                     <p className="text-sm text-slate-300 mb-3">Estimate costs and compare likely return on investment for top paths.</p>
 
-                    {careerSuggestions[0] ? (
+                    {loadingCareers ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-teal-500/20 border-t-teal-500 mx-auto mb-3" />
+                          <p className="text-slate-400 text-sm">Calculating education costs...</p>
+                        </div>
+                      </div>
+                    ) : careerSuggestions[0] ? (
                       <>
                         <div className="mb-3 p-3 bg-slate-700/30 rounded-lg border border-teal-500/20">
                           <div className="text-sm font-medium text-white">Typical Education</div>

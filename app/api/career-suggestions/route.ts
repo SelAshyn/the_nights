@@ -9,13 +9,43 @@ function extractJson(text: string) {
     if (jsonMatch) {
       const jsonText = jsonMatch[1] || jsonMatch[0];
       const cleaned = jsonText.replace(/^json\s*/, '').trim();
-      return JSON.parse(cleaned);
+
+      // Try to fix incomplete JSON by adding closing brackets if needed
+      let fixedJson = cleaned;
+      if (fixedJson.startsWith('[') && !fixedJson.endsWith(']')) {
+        // Count open vs closed brackets to try to fix incomplete arrays
+        const openBrackets = (fixedJson.match(/\[/g) || []).length;
+        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+        const openBraces = (fixedJson.match(/\{/g) || []).length;
+        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+
+        // Add missing closing braces first
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          fixedJson += '}';
+        }
+
+        // Add missing closing brackets
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          fixedJson += ']';
+        }
+      }
+
+      return JSON.parse(fixedJson);
     }
 
     // If no match found, try parsing the whole text
-    return JSON.parse(text.trim());
+    let wholeText = text.trim();
+
+    // Try to extract just the array part if it exists
+    const arrayMatch = wholeText.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      wholeText = arrayMatch[0];
+    }
+
+    return JSON.parse(wholeText);
   } catch (e) {
     console.error('JSON extraction failed:', e);
+    console.error('Text being parsed:', text.substring(0, 500));
     return null;
   }
 }
@@ -268,7 +298,7 @@ IMPORTANT NOTES:
           { role: 'user', content: fullPrompt }
         ],
         temperature: 0.5,
-        max_tokens: 6000,
+        max_tokens: 8000,
         response_format: { type: "json_object" },
       }),
     });
@@ -284,9 +314,9 @@ IMPORTANT NOTES:
 
     const json = extractJson(output);
 
-    if (json && Array.isArray(json) && json.length === 6) {
-      // Validate and clean JSON structure, including new fields
-      const validatedCareers = json.map(career => ({
+    if (json && Array.isArray(json) && json.length > 0) {
+      // Accept any valid array, even if not exactly 6 items
+      const validatedCareers = json.slice(0, 6).map(career => ({
         title: career.title || 'Unknown Career',
         description: career.description || 'No description available',
         fitScore: typeof career.fitScore === 'number' ? Math.max(1, Math.min(100, career.fitScore)) : 70,
@@ -362,6 +392,13 @@ IMPORTANT NOTES:
         }
       }));
 
+      // If we got fewer than 6 careers, pad with fallback careers
+      if (validatedCareers.length < 6) {
+        const fallbackCareers = getFallbackCareers(fullQuizData);
+        const needed = 6 - validatedCareers.length;
+        validatedCareers.push(...fallbackCareers.slice(0, needed));
+      }
+
       return new Response(
         JSON.stringify({ careers: validatedCareers, source: 'ai' }),
         {
@@ -373,8 +410,19 @@ IMPORTANT NOTES:
         }
       );
     } else {
-      console.warn('AI response invalid or incomplete, using fallback');
-      throw new Error('Invalid AI response format');
+      console.warn('AI response invalid or incomplete, using fallback. Raw output:', output.substring(0, 200));
+      // Don't throw error, just use fallback
+      const fallbackCareers = getFallbackCareers(fullQuizData);
+      return new Response(
+        JSON.stringify({ careers: fallbackCareers, source: 'fallback', reason: 'AI response parsing failed' }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, max-age=0'
+          }
+        }
+      );
     }
 
   } catch (err: any) {
