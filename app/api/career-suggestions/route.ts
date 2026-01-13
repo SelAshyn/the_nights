@@ -396,7 +396,85 @@ IMPORTANT NOTES:
       if (validatedCareers.length < 6) {
         const fallbackCareers = getFallbackCareers(fullQuizData);
         const needed = 6 - validatedCareers.length;
-        validatedCareers.push(...fallbackCareers.slice(0, needed));
+
+        // Validate fallback careers with the same structure as AI careers
+        const validatedFallbackCareers = fallbackCareers.slice(0, needed).map(career => ({
+          title: career.title || 'Unknown Career',
+          description: career.description || 'No description available',
+          fitScore: typeof career.fitScore === 'number' ? Math.max(1, Math.min(100, career.fitScore)) : 70,
+          matchExplanation: career.matchExplanation || 'This career offers interesting opportunities based on your profile.',
+          nepalOpportunities: typeof career.nepalOpportunities === 'string' ? career.nepalOpportunities : 'Various opportunities available across industries.',
+          remoteWork: typeof career.remoteWork === 'string' ? career.remoteWork : 'Varies by role',
+          salary: typeof career.salary === 'object' ? career.salary : {
+            entryLevel: 'NPR 20,000-40,000',
+            midCareer: 'NPR 50,000-100,000',
+            seniorLevel: 'NPR 100,000+',
+            globalComparison: '$ equivalent'
+          },
+          growth: typeof career.growth === 'object' ? career.growth : {
+            nepalMarket: 'Medium',
+            globalTrend: 'Growing',
+            automationRisk: 'Low',
+            futureOutlook: 'Positive'
+          },
+          education: typeof career.education === 'object' ? career.education : {
+            pathway: 'Standard educational path',
+            timeline: '4-5 years',
+            nepalOptions: ['Local universities'],
+            internationalOptions: ['Global universities'],
+            costEstimate: { nepal: 'NPR 500,000-1,000,000', international: 'Varies' }
+          },
+          degrees: typeof career.degrees === 'object' ? career.degrees : {
+            essential: ['Bachelor\'s degree'],
+            recommended: ['Master\'s degree'],
+            alternative: ['Diplomas/Certifications']
+          },
+          skills: typeof career.skills === 'object' ? career.skills : {
+            technical: ['Basic skills'],
+            soft: ['Communication', 'Teamwork'],
+            developmentPlan: 'Practice and training'
+          },
+          extracurricular: typeof career.extracurricular === 'object' ? career.extracurricular : {
+            schoolLevel: ['School clubs'],
+            undergraduate: ['University societies'],
+            online: ['Online courses']
+          },
+          certifications: typeof career.certifications === 'object' ? career.certifications : {
+            local: ['Local certifications'],
+            international: ['Global certs'],
+            online: ['Online platforms']
+          },
+          jobTitles: typeof career.jobTitles === 'object' ? career.jobTitles : {
+            entry: ['Junior Position'],
+            mid: ['Mid-level Position'],
+            senior: ['Senior Position'],
+            entrepreneurial: ['Business Owner']
+          },
+          universities: Array.isArray(career.universities) ? career.universities : [
+            { name: 'Local University', location: 'Nepal', program: 'Relevant Program', nepalRelevance: 'High', scholarshipInfo: 'Available' }
+          ],
+          financialAdvice: typeof career.financialAdvice === 'object' ? career.financialAdvice : {
+            budgetingTips: ['Create monthly budget'],
+            savingTips: ['Save 20% of income'],
+            educationCostAdvice: 'Plan for educational expenses',
+            scholarshipSuggestions: { government: [], university: [], international: [], corporate: [] },
+            earningWhileStudying: { partTime: [], freelance: [], internships: [], entrepreneurial: [] }
+          },
+          riskAssessment: typeof career.riskAssessment === 'object' ? career.riskAssessment : {
+            marketSaturation: 'Moderate',
+            barriersToEntry: 'Standard',
+            adaptationRequired: 'Continuous learning needed',
+            alternativePaths: 'Related careers available'
+          },
+          successMetrics: typeof career.successMetrics === 'object' ? career.successMetrics : {
+            shortTerm: 'Complete education',
+            mediumTerm: 'Gain experience',
+            longTerm: 'Achieve career goals',
+            keyPerformanceIndicators: 'Skill development'
+          }
+        }));
+
+        validatedCareers.push(...validatedFallbackCareers);
       }
 
       return new Response(
