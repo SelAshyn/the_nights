@@ -136,12 +136,13 @@
 
 
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 2px;
 }
+
 
 /* Track */
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 1);
+  background: transparent;
   width: 2px;
 }
 
