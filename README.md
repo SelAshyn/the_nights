@@ -1,8 +1,8 @@
-# 🚀 MentorLaunch
+# 🚀 Unite
 
 **Your AI-Powered Career Guidance & Mentorship Platform**
 
-MentorLaunch is a comprehensive career guidance platform designed to help students discover their ideal career paths, connect with experienced mentors, and build actionable roadmaps for success. Powered by AI and real human expertise, we make career planning accessible, personalized, and engaging.
+Unite is a comprehensive career guidance platform designed to help students discover their ideal career paths, connect with experienced mentors, and build actionable roadmaps for success. Powered by AI and real human expertise, we make career planning accessible, personalized, and engaging.
 
 ---
 
